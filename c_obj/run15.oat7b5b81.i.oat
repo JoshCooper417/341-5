@@ -1,0 +1,21 @@
+# 1 "./tests/run15.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "./tests/run15.oat"
+
+
+class A {
+  string str;
+  new () () this.str = "str"; {}
+};
+
+class B<:A {
+  new () () {}
+};
+
+int program (int argc, string[] argv) {
+  B b = new B ();
+  print_string (b.str);
+  return 0;
+}
+
