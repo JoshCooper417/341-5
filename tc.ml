@@ -422,7 +422,16 @@ let rec tc_stmt (c:ctxt) (s:Range.t stmt) : unit =
   | Block block -> 
     ignore (tc_block c block)
 
-  | Cast (cid, (info, id), e, st1, sto) -> failwith "tc.ml: Cast not implemented"
+  | Cast (cid, (info, id), e, st1, sto) ->
+    begin match sto with
+      | Some stmt-> tc_stmt c s
+      | None -> ()
+    end;
+    let typ1 = (TRef(RClass (cid))) in
+    let c2 = add_local id typ1  c in
+    tc_stmt c2 st1;
+    let typ2 = tc_exp c e in
+    assert_subtype c info typ2 typ1
 
 
 (* Sequence of statements *)

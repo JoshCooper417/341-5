@@ -1,0 +1,20 @@
+# 1 "./tests/run13.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "./tests/run13.oat"
+class A {
+  bool b;
+  new () () { this.b = true; }
+};
+
+class B<:A {
+  new () () {} 
+};
+
+int program (int argc, string[] argv) {
+  B b = new B ();
+  int i = 0;
+  if (b.b) i = 1; else i = 0;
+  return i;
+}
+
