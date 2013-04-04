@@ -477,38 +477,36 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
  let c_signature = List.assoc (lookup_this c) (get_csigs c) in
  let fields = c_signature.fields in
  let methods = c_signature.methods in
- let (first_op,second_op,str) =  
- begin match p with
-    | Ast.ThisId (a', id) ->
+ let (first_op,insns1,class_string,id_string) = 
+    begin match p with
+    | Ast.ThisId (id) ->
+       let op1 = this_op c in
+       (op1,[],(lookup_this c),(snd id))
+    | Ast.PathId (l_or_call,id)->
+      let (op,str) = cmp_lhs_or_call c l_or_call in
+      (*DEAL WITH CID HERE*)
+      (op,str, "" ,(snd id))
+    end in
       let op1 = this_op c in
       let start = 1 in
-      let id_type_option = get_this_field_info fields start id in
+      let id_type_option = get_this_field_info fields start id_string in
       begin match id_type_option with
-	| Some (s1,idx) -> let (uid2,op2) = gen_local_op s1 id in
-	  (op1,op2,[])
-	  (* (op1,op1,[(\* I(Gep((fst op1),op1,[(i32_op_of_int idx)])) *\)]) *)
-	| None -> let fn_type_option = get_this_fn_info methods 1 id in
-		  begin match fn_type_option with
-		    | Some (s2,idx) -> (* let vtable = c_signature.vtable in *)
-				       (* let fptr = Fptr (s2.ty_args,s2.rty) in *)
-				       (* let operand2 = gen_local_op fptr id in *)
-				       (* let ptr = Ptr(Fptr (s2.ty_args,s2.rty)) in *)
-				       (* let ptr_op = gen_local_op ptr id in *)
-				       (* (op1,(snd operand2),[I(Load((fst operand2),(snd ptr_op))); *)
-				       (* 	I(Gep((fst ptr_op),vtable,[i32_op_of_int 0;i32_op_of_int idx]))]) *)
-					  failwith ""
-		    | None -> failwith "Impossible case."
-		  end
+      	| Some (s1,idx) ->
+	let (uid2,op2) = gen_local_op s1 id_string in
+      	  (op1,op2,[I(Gep(uid2,op1,[(i32_op_of_int idx)]))])
+      	| None -> let fn_type_option = get_this_fn_info methods 1 id_string in
+      		  begin match fn_type_option with
+      		    | Some (s2,idx) -> let vtable = c_signature.vtable in
+      		  		       let fptr = Fptr (s2.ty_args,s2.rty) in
+      		  		       let (uid2,op2) = gen_local_op fptr id_string in
+      		  		       let ptr = Ptr(Fptr (s2.ty_args,s2.rty)) in
+      		  		       let ptr_op = gen_local_op ptr id_string in
+				       let insns = [I(Gep((fst ptr_op),vtable,[i32_op_of_int 0;i32_op_of_int idx]));
+					 I(Load(uid2,(snd ptr_op)))] in
+      		  		       (op1,op2,insns)
+      		    | None -> failwith "Impossible case."
+      		  end
       end
-      (* (op1,[]) *)
-    (* identifiers in this class *)
-      failwith ""
-    | Ast.PathId (l_or_call,id)->
-      (* cmp_lhs_or_call c l_or_call *)
-failwith ""  
-(* path identifiers, e.g, a.b.f().c *)
- end in
-failwith "We think this should be a failwith..."
 
 
 and get_this_field_info (fields)(idx:int)(id:string) : (Ll.ty*int)option =
@@ -767,7 +765,36 @@ let cmp_cinits (c:ctxt) (is:Range.t Ast.cinits) : stream = failwith "cmp_cinits 
  * 10) Call build_fdecl with the function signature and code you generated to
  *     add the function to the context and return the extended context.
  *)
+
+let rec work_es_list (c:ctxt) (es) (super:ty list) : (operand list) * (stream) =
+  begin match (es,super) with
+    |(h1::t1,h2::t2)-> let (op,str) = cmp_exp c h1 in
+		       let typ1 = fst op in
+		       let (uid,new_op) = gen_local_op h2 "new_op" in
+		       let bitcast = [I(Bitcast(uid,op,h2))] in
+		       let (olist,str2) = work_es_list c t1 t2 in
+		       (new_op::olist,str@bitcast@str2)
+    |([],[]) -> ([],[])
+    |_,_->failwith "different sized lists in work_es_list"
+  end
+
 let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
+  let (c2, insns, op_list_old) = cmp_args c ar in
+  let thisop = this_op c in
+  let op_list = thisop::op_list_old in
+  let c3 = add_local c2 "this" thisop in
+  let csig = lookup_csig c3 cid in
+  let ctor_fn = csig.ctor in
+  let ty_list = ctor_fn.ty_args in
+  let (super_op_list,super_stream) = work_es_list c3 es ty_list in
+  let call_insns = 
+    begin match csig.ext with
+      | Some super_class -> let csig_super = lookup_csig c2 super_class in
+			    let super_ctor_fn = csig_super.ctor in
+			    [I(Call(None,,))]
+      | None->[]
+    end
+  
   failwith "phase1.ml: compile_ctor not implemented"
 
 
