@@ -632,7 +632,7 @@ and cmp_stmt (c:ctxt) (stmt : Range.t Ast.stmt) : stream =
       print_code >::
         I (Call (None, op_of_fn oat_abort_fn, [i32_op_of_int (-1)]))
 
-    | Ast.Cast (cid, (_, id), e, st, sto)  -> failwith "phase1.ml: cast not implemented"
+    | Ast.Cast (cid, (_, id), e, st, sto)  -> failwith "phase1.ml: cast not yet implemented"
 
 
 and cmp_stmts (c:ctxt) (stmts:Range.t Ast.stmts) : stream =
