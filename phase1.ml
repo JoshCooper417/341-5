@@ -474,7 +474,61 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
  * that method.
  *)
 and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
-  failwith "phase1.ml: cmp_path not implemented"
+ let c_signature = List.assoc (lookup_this c) (get_csigs c) in
+ let fields = c_signature.fields in
+ let methods = c_signature.methods in
+ let (first_op,second_op,str) =  
+ begin match p with
+    | Ast.ThisId (a', id) ->
+      let op1 = this_op c in
+      let start = 1 in
+      let id_type_option = get_this_field_info fields start id in
+      begin match id_type_option with
+	| Some (s1,idx) -> let (uid2,op2) = gen_local_op s1 id in
+	  (op1,op2,[])
+	  (* (op1,op1,[(\* I(Gep((fst op1),op1,[(i32_op_of_int idx)])) *\)]) *)
+	| None -> let fn_type_option = get_this_fn_info methods 1 id in
+		  begin match fn_type_option with
+		    | Some (s2,idx) -> (* let vtable = c_signature.vtable in *)
+				       (* let fptr = Fptr (s2.ty_args,s2.rty) in *)
+				       (* let operand2 = gen_local_op fptr id in *)
+				       (* let ptr = Ptr(Fptr (s2.ty_args,s2.rty)) in *)
+				       (* let ptr_op = gen_local_op ptr id in *)
+				       (* (op1,(snd operand2),[I(Load((fst operand2),(snd ptr_op))); *)
+				       (* 	I(Gep((fst ptr_op),vtable,[i32_op_of_int 0;i32_op_of_int idx]))]) *)
+					  failwith ""
+		    | None -> failwith "Impossible case."
+		  end
+      end
+      (* (op1,[]) *)
+    (* identifiers in this class *)
+      failwith ""
+    | Ast.PathId (l_or_call,id)->
+      (* cmp_lhs_or_call c l_or_call *)
+failwith ""  
+(* path identifiers, e.g, a.b.f().c *)
+ end in
+failwith "We think this should be a failwith..."
+
+
+and get_this_field_info (fields)(idx:int)(id:string) : (Ll.ty*int)option =
+  begin match fields with
+    | h::t->if (fst h) = id then
+	let tuple = ((snd h), idx) in
+         Some tuple
+      else get_this_field_info t (idx+1) id
+    |[]->None
+   end
+
+and get_this_fn_info (methods)(idx:int)(id:string) : (Ll.fn*int) option =
+ begin match methods with
+    | h::t->if (fst h) = id then	
+	let tuple = ((snd h), idx) in
+         Some tuple
+      else get_this_fn_info t (idx+1) id
+    |[]->None
+   end
+ 
 
 (* Compile an initializer. To avoid computing a common subtype of all elements
    of an array initializer, this function takes an extra parameter supplying the

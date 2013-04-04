@@ -121,14 +121,69 @@ let wf_rtyp (c:ctxt) (r:rtyp) : bool =
 
 (* Subtyping *)
 
+(* Retrns the string identifier of the super class of cid1 *)
+let rec find_superclass (cid1:cid) (sigs:signature) : cid =
+  begin match sigs with
+    |h::t->let id = fst h in
+	   if id = cid1 then let (super,_,_,_) = snd h in
+			     begin match super with
+			       |Some s -> s
+			       |None -> "Object" (*Default is Object*)
+			     end
+	   else find_superclass cid1 t
+    | []->failwith "Current class not in the context-should be impossible case"
+   end
+
 (* Returns whether cid1 is a subclass of cid2 (transitively) according to
  * the given signatures. *)
-let rec subclass (c:ctxt) (cid1:cid) (cid2:cid) : bool = failwith "tc.ml: subclass not implemented"
+let rec subclass (c:ctxt) (cid1:cid) (cid2:cid) : bool =
+  if cid1 = cid2 then true
+  else if cid1 = "Object" then false
+  else
+  let sigs = c.sigs in
+  let super_class = find_superclass cid1 sigs in
+  subclass c super_class cid2
 
 (* Determines whether r1 is a subtype (as a reference) of r2. *)
-let subref (c:ctxt) (r1:ref) (r2:ref) : bool = failwith "tc.ml: subref not implemented"
+let subref (c:ctxt) (r1:ref) (r2:ref) : bool = 
+  begin match r1 with
+    | RString -> 
+      begin match r2 with
+	 |RString -> true
+     	 | _ -> false
+      end
+    |RArray t1->
+      begin match r2 with
+	 |RArray t2 -> t1 = t2
+     	 | _ -> false
+      end
+    | RClass c1 ->
+      begin match r2 with
+	 |RClass c2 -> subclass c c1 c2
+     	 | _ -> false
+      end
+     end
 
-let subtype (c:ctxt) (t1:typ) (t2:typ) : bool = failwith "tc.ml: subtype not implemented"
+let subtype (c:ctxt) (t1:typ) (t2:typ) : bool = 
+  begin match t1 with
+    | TBot ->
+      begin match t2 with
+	| TNullable _ -> true
+	| _ -> false
+      end
+    | TRef r1 ->
+      begin match t2 with
+	| TRef r2 -> subref c r1 r2
+	| TNullable r2 -> subref c r1 r2
+	| _ -> false
+      end
+    | TNullable r1 ->
+      begin match t2 with
+	| TNullable r2 -> subref c r1 r2
+	| _ -> false
+      end
+    |_ -> t1 = t2 (*TBool or TInt*)
+  end
 
 let assoc' k a = try Some (List.assoc k a) with Not_found -> None
 
@@ -199,7 +254,7 @@ let find_this (c:ctxt) : (cid * csig) option =
 
 let assert_subtype (c:ctxt) (info:Range.t) (t1:typ) (t2:typ) : unit =
   tc_assert (subtype c t1 t2)
-    (imsg info "Expected subtype of '%s' but got '%s'." 
+    (imsg info ("Expected subtype of '%s' but instead the tester got '%s'") 
        (string_of_typ t2) (string_of_typ t1))
 
 let rec assert_args (c:ctxt) (info:Range.t) (ts:typ list) (es:'a exp list) : unit =
@@ -424,14 +479,14 @@ let rec tc_stmt (c:ctxt) (s:Range.t stmt) : unit =
 
   | Cast (cid, (info, id), e, st1, sto) ->
     begin match sto with
-      | Some stmt-> tc_stmt c s
+      | Some stmt->tc_stmt c stmt
       | None -> ()
     end;
     let typ1 = (TRef(RClass (cid))) in
-    let c2 = add_local id typ1  c in
-    tc_stmt c2 st1;
+    let c2 = add_local id typ1 c in
+    (* tc_stmt c2 st1; *)
     let typ2 = tc_exp c e in
-    assert_subtype c info typ2 typ1
+    assert_subtype c info typ1 typ2
 
 
 (* Sequence of statements *)
