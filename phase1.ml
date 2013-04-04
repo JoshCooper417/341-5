@@ -484,8 +484,12 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
        (op1,[],(lookup_this c),(snd id))
     | Ast.PathId (l_or_call,id)->
       let (op,str) = cmp_lhs_or_call c l_or_call in
-      (*DEAL WITH CID HERE*)
-      (op,str, "" ,(snd id))
+      let cid = 
+      begin match (fst op) with
+	| Ptr (Namedt (class_name)) -> class_name
+	| _ -> failwith "Should have returned a Ptr(Namedt(cid)) in cmp_path"
+      end in
+      (op,str, cid ,(snd id))
     end in
       let op1 = this_op c in
       let start = 1 in
@@ -791,9 +795,10 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
     begin match csig.ext with
       | Some super_class -> let csig_super = lookup_csig c2 super_class in
 			    let super_ctor_fn = csig_super.ctor in
-			    [I(Call(None,,))]
+			    failwith""
+			    (* [I(Call(None,,))] *)
       | None->[]
-    end
+    end in
   
   failwith "phase1.ml: compile_ctor not implemented"
 
