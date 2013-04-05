@@ -795,11 +795,10 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
     begin match csig.ext with
       | Some super_class -> let csig_super = lookup_csig c2 super_class in
 			    let super_ctor_fn = csig_super.ctor in
-			    failwith""
+			    failwith "unimplemented"
 			    (* [I(Call(None,,))] *)
       | None->[]
     end in
-  
   failwith "phase1.ml: compile_ctor not implemented"
 
 
