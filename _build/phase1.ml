@@ -632,7 +632,7 @@ and cmp_stmt (c:ctxt) (stmt : Range.t Ast.stmt) : stream =
       print_code >::
         I (Call (None, op_of_fn oat_abort_fn, [i32_op_of_int (-1)]))
 
-    | Ast.Cast (cid, (_, id), e, st, sto)  -> failwith "phase1.ml: cast not implemented"
+    | Ast.Cast (cid, (_, id), e, st, sto)  -> failwith "phase1.ml: cast not yet implemented"
 
 
 and cmp_stmts (c:ctxt) (stmts:Range.t Ast.stmts) : stream =
@@ -749,7 +749,23 @@ let cmp_gvdecl (c:ctxt) (v:Range.t Ast.vdecl) : ctxt =
 	    add_global c id gop (GInit {name=init_gid; ty_args=[]; rty=None})
     end
 
-let cmp_cinits (c:ctxt) (is:Range.t Ast.cinits) : stream = failwith "cmp_cinits not implemented"    
+let rec cmp_cinits (c:ctxt) (is:Range.t Ast.cinits) : stream = 
+  begin match is with
+    |(field_id,init)::t->
+      let path = Ast.ThisId field_id in
+      let (_,o2,pathstream) = cmp_path c path in
+      let o2_type = begin match (fst o2) with
+	| Ptr t -> t
+	| _ -> failwith "o2 should have been a pointer"
+      end in
+      let (oinit,initstream) = cmp_init c o2_type init in
+      let store_insn = [I(Store(o2,oinit))] in
+      let recurse_stream = cmp_cinits c t in
+      pathstream@initstream@store_insn@recurse_stream
+    |[]->[]
+  end;
+
+failwith "cmp_cinits not implemented"    
     
 (* Compile a constructor function.
  * 1) Compile the argument list, and extend the resulting Ll operand list 
@@ -795,11 +811,12 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
     begin match csig.ext with
       | Some super_class -> let csig_super = lookup_csig c2 super_class in
 			    let super_ctor_fn = csig_super.ctor in
-			    failwith""
-			    (* [I(Call(None,,))] *)
+			    let fn_gid = super_ctor_fn.name in
+			    let typ = Fptr (super_ctor_fn.ty_args,super_ctor_fn.rty) in
+			    let fn_operand:operand = (typ, (Gid fn_gid)) in
+			    [I(Call(None,fn_operand,super_op_list))]
       | None->[]
     end in
-  
   failwith "phase1.ml: compile_ctor not implemented"
 
 

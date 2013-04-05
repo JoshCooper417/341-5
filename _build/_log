@@ -164,18 +164,14 @@
 # Target: phase1.cmx, tags: { compile, extension:cmx, extension:ml, file:phase1.cmx, file:phase1.ml, implem, native, ocaml, quiet }
 /usr/local/bin/ocamlopt.opt -c -o phase1.cmx phase1.ml
 + /usr/local/bin/ocamlopt.opt -c -o phase1.cmx phase1.ml
-File "phase1.ml", line 776, characters 13-17:
+File "phase1.ml", line 792, characters 13-17:
 Warning 26: unused variable typ1.
-File "phase1.ml", line 797, characters 11-24:
-Warning 26: unused variable super_ctor_fn.
-File "phase1.ml", line 794, characters 6-16:
+File "phase1.ml", line 810, characters 6-16:
 Warning 26: unused variable call_insns.
-File "phase1.ml", line 793, characters 21-33:
-Warning 26: unused variable super_stream.
-File "phase1.ml", line 793, characters 7-20:
-Warning 26: unused variable super_op_list.
-File "phase1.ml", line 788, characters 6-13:
+File "phase1.ml", line 804, characters 6-13:
 Warning 26: unused variable op_list.
+File "phase1.ml", line 753, characters 2-480:
+Warning 10: this expression should have type unit.
 # Target: occ.cmx, tags: { compile, extension:cmx, extension:ml, file:occ.cmx, file:occ.ml, implem, native, ocaml, quiet }
 /usr/local/bin/ocamlopt.opt -c -o occ.cmx occ.ml
 # Target: Oconfig.ml.depends, tags: { extension:ml, file:Oconfig.ml, ocaml, ocamldep, quiet }
@@ -193,5 +189,5 @@ Warning 26: unused variable op_list.
 # Target: main.native, tags: { dont_link_with, extension:native, file:main.native, link, native, ocaml, program, quiet }
 /usr/local/bin/ocamlopt.opt unix.cmxa str.cmxa LibUtil.cmx Oconfig.cmx assert.cmx ast.cmx range.cmx parser.cmx lexer.cmx astlib.cmx x86.cmx ll.cmx ctxt.cmx cunit.cmx platform.cmx lllib.cmx tctxt.cmx tc.cmx phase1.cmx phase2.cmx occ.cmx gradedtests.cmx providedtests.cmx driver.cmx main.cmx -o main.native
 + /usr/local/bin/ocamlopt.opt unix.cmxa str.cmxa LibUtil.cmx Oconfig.cmx assert.cmx ast.cmx range.cmx parser.cmx lexer.cmx astlib.cmx x86.cmx ll.cmx ctxt.cmx cunit.cmx platform.cmx lllib.cmx tctxt.cmx tc.cmx phase1.cmx phase2.cmx occ.cmx gradedtests.cmx providedtests.cmx driver.cmx main.cmx -o main.native
-ld: warning: PIE disabled. Absolute addressing (perhaps -mdynamic-no-pic) not allowed in code signed PIE, but used in _caml_program from /var/folders/g5/jcg10xnn5k5c7rkmyhrbjv9m0000gn/T/camlstartupb25f58.o. To fix this warning, don't compile with -mdynamic-no-pic or link with -Wl,-no_pie
+ld: warning: PIE disabled. Absolute addressing (perhaps -mdynamic-no-pic) not allowed in code signed PIE, but used in _caml_program from /var/folders/g5/jcg10xnn5k5c7rkmyhrbjv9m0000gn/T/camlstartup5b63ec.o. To fix this warning, don't compile with -mdynamic-no-pic or link with -Wl,-no_pie
 # Compilation successful.
