@@ -474,6 +474,7 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
  * that method.
  *)
 and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
+  let does_this_work = 7 in
  let c_signature = List.assoc (lookup_this c) (get_csigs c) in
  let fields = c_signature.fields in
  let methods = c_signature.methods in
