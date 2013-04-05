@@ -305,11 +305,11 @@ let rec cmp_exp (c:ctxt) (exp:Range.t Ast.exp) : (operand * stream) =
 
     | Ast.This info -> (this_op c, [])
 
-    | Ast.LhsOrCall lhsc ->cmp_lhs_or_call c lhsc
+    | Ast.LhsOrCall lhsc -> cmp_lhs_or_call c lhsc 
 
     | Ast.Binop (bop, e1, e2) -> 
-	  let (op1, code1) = cmp_exp c e1 in
-	  let (op2, code2) = cmp_exp c e2 in
+	  let (op1, code1) = try cmp_exp c e1 with Not_found -> failwith "problem in line 311" in
+	  let (op2, code2) = try cmp_exp c e2 with Not_found -> failwith "problem in line 312" in
 	  let (ans_id, ans_op) = gen_local_op (ty_of_bop bop) "bop" in 
 	  ((ans_op , code1 >@ code2 >:: I (cmp_binop bop ans_id op1 op2)))
 
@@ -324,7 +324,7 @@ let rec cmp_exp (c:ctxt) (exp:Range.t Ast.exp) : (operand * stream) =
 
     | Ast.Ctor ((info,cid), es) -> 
       let ctor = (lookup_csig c cid).ctor in
-      let args, arg_code = cmp_exps c es in
+      let args, arg_code = try cmp_exps c es with Not_found -> failwith "problem in line 327" in
       let this, mem_code = oat_alloc_object c cid in
       let res_id, res_op = gen_local_op (Ptr (Namedt cid)) "new_obj" in
 
@@ -332,7 +332,7 @@ let rec cmp_exp (c:ctxt) (exp:Range.t Ast.exp) : (operand * stream) =
         I (Call (Some res_id, op_of_fn ctor, this::args)))
 
     | Ast.New(elem_ty,e1,id,e2) -> 
-      let (size, code_e1) = cmp_exp c e1 in
+      let (size, code_e1) = try cmp_exp c e1 with Not_found -> failwith "problem in line 335" in
       let t = cmp_ty elem_ty in
       let (array_op, alloc_code) = oat_alloc_array_dynamic t size in
 
@@ -366,10 +366,10 @@ let rec cmp_exp (c:ctxt) (exp:Range.t Ast.exp) : (operand * stream) =
         loop_code)
 
 and cmp_exps (c:ctxt) (es:'a Ast.exp list) : (operand list * stream) =
-  List.fold_right (fun e (ops, code) ->
-      let op, s = cmp_exp c e in
+  let x = try List.fold_right (fun e (ops, code) ->
+      let op, s = try cmp_exp c e with Not_found -> failwith "problem in line 370" in
       (op::ops, s @ code)
-  ) es ([],[])
+  ) es ([],[]) with Not_found -> failwith"problem in line 372" in x 
 
 (* Because length_of_array is polymorphic, we'd have to use bitcast to
  * call it However, its implementation is just a simple lookup of the
@@ -378,7 +378,7 @@ and cmp_exps (c:ctxt) (es:'a Ast.exp list) : (operand list * stream) =
 and cmp_length_of_array (c:ctxt) (es:Range.t Ast.exp list) : operand option * stream =
   begin match es with
     | [e] ->
-	let (array_op, array_code) = cmp_exp c e in
+	let (array_op, array_code) = try cmp_exp c e with Not_found -> failwith "problem in line 381" in
 	let (len_id, len_op) = gen_local_op (Ptr I32) "len_ptr" in 
 	let (ans_id, ans_op) = gen_local_op I32 "len" in 
 	  (Some ans_op,
@@ -402,10 +402,8 @@ and cmp_lhs (c:ctxt) (l:Range.t Ast.lhs) : operand * stream =
 	  end
     | Ast.Path p -> let (_, op, code) = cmp_path c p in (op, code)
     | Ast.Index (lhsc, exp) ->
-      print_string("\n\nLine 405?");
-	  let (array_ptr, array_code) = cmp_lhs_or_call c lhsc in
-	  print_string("No\n\n");
-	  let (index, index_code) = cmp_exp c exp in   
+	  let (array_ptr, array_code) = try cmp_lhs_or_call c lhsc with Not_found -> failwith"problem in line 405" in
+	  let (index, index_code) = try cmp_exp c exp with Not_found -> failwith "problem in line 406" in   
 	  begin match array_ptr with
 	    | (Ptr (Struct [I32; Array(0l, u)]), id) ->
 		  (* Translation invariant: arrays as lhs translate as above
@@ -455,14 +453,14 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
   match ca with
     | Ast.Func ((_,"length_of_array"), es) -> cmp_length_of_array c es
     | Ast.Func ((_,id), es) ->
-      let (args, arg_code) = cmp_exps c es in
+      let (args, arg_code) = try cmp_exps c es with Not_found -> failwith "problem in line 456" in
       let fn = lookup_fn c id in
       let (op, call_code) = call_of (pack fn) args in
       (op, arg_code >@ call_code)
     | Ast.SuperMethod ((_,id), es) ->
-      let (args, arg_code) = cmp_exps c es in
+      let (args, arg_code) = try cmp_exps c es with Not_found -> failwith "problem in line 461" in
       let path = Ast.ThisId (Range.norange, id) in
-      let (_,fnop,stream) = cmp_path c path in
+      let (_,fnop,stream) = try cmp_path c path with Not_found -> failwith "problem in line 463" in
       let typ_list, typ_opt, fn_id = 
       begin match fnop with
 	| (Fptr(ty_list, ty_opt), Id fid)-> (ty_list, ty_opt, (mk_gid(string_of_uid fid)))
@@ -473,8 +471,8 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
       (op, arg_code >@ stream >@ call_code)
       (* failwith "phase1.ml: supermethod not implemented" *)
     | Ast.PathMethod (p, es) ->
-      let (args, arg_code) = cmp_exps c es in
-      let (_,fnop,stream) = cmp_path c p in
+      let (args, arg_code) = try cmp_exps c es with Not_found -> failwith "problem in line 474" in
+      let (_,fnop,stream) = try cmp_path c p with Not_found -> failwith "problem in line 475" in
       let typ_list, typ_opt, fn_id = 
       begin match fnop with
 	| (Fptr(ty_list, ty_opt), Id fid)-> (ty_list, ty_opt,(mk_gid(string_of_uid fid)))
@@ -501,7 +499,11 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
  * that method.
  *)
 and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
- let c_signature = List.assoc (lookup_this c) (get_csigs c) in
+  let c_signature =
+(* try *)
+ List.assoc (lookup_this c) (get_csigs c) in 
+(* with *)
+(*   |Not_found -> failwith "problem in line 505" in *)
  let fields = c_signature.fields in
  let methods = c_signature.methods in
  let (first_op,insns1,class_string,id_string) = 
@@ -511,7 +513,7 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
        (op1,[],(lookup_this c),(snd id))
     | Ast.PathId (l_or_call,id)->
       print_string("Problem?");
-      let (op,str) = cmp_lhs_or_call c l_or_call in
+      let (op,str) = try cmp_lhs_or_call c l_or_call with Not_found -> failwith"problem in line 516"in
       print_string("No");
       let cid = 
       begin match (fst op) with
@@ -570,7 +572,7 @@ and get_this_fn_info (methods)(idx:int)(id:string) : (Ll.fn*int) option =
    length isn't known until runtime. *)
 and cmp_init (c:ctxt) (ty:ty) (init:Range.t Ast.init) : (operand * stream) =
   match init with
-    | Ast.Iexp e -> cast_op (cmp_exp c e) ty
+    | Ast.Iexp e -> let x = try cast_op (cmp_exp c e) ty with Not_found -> failwith "problem in line 575" in x
     | Ast.Iarray (_, is) ->
       let et = match ty with
         | Ptr (Struct [_; Array (_, t)]) -> t
@@ -614,17 +616,17 @@ and cmp_stmt (c:ctxt) (stmt : Range.t Ast.stmt) : stream =
     | Ast.Assign (lhs ,e) ->
       begin match cmp_lhs c lhs with
         | (Ptr ty,_) as lop, lhs_code ->
-          let eop, exp_code = cast_op (cmp_exp c e) ty in
+          let eop, exp_code = try cast_op (cmp_exp c e) ty with Not_found -> failwith "problem in line 619" in
           lhs_code >@ exp_code >@ [I (Store (eop, lop))]
         | _ -> failwith "cmp_stmt: lhs of assign is not of ptr type"
       end
 
     | Ast.If (guard, st1, sto2) -> 
-	  let op, guard_code = cmp_exp c guard in
+	  let op, guard_code = try cmp_exp c guard with Not_found -> failwith "problem in line 625" in
       guard_code >@ cmp_conditional c op st1 sto2
 
     | Ast.While (guard, body) ->
-	  let (op, guard_code) = cmp_exp c guard in
+	  let (op, guard_code) = try cmp_exp c guard with Not_found -> failwith "problem in line 629" in
 	  let (lcond, lbody, lpost) = 
         mk_lbl_hint "cond", mk_lbl_hint "body", mk_lbl_hint "post" in
 	  let body_code = cmp_stmt c body in 
@@ -645,7 +647,7 @@ and cmp_stmt (c:ctxt) (stmt : Range.t Ast.stmt) : stream =
     | Ast.IfNull (r, (_,id), e, st, sto) -> 
       (* Adding id to the ctxt of sto is ok since the typechecking phase
        * guarantees that is never referenced *)
-      let ref_op, ref_code = cmp_exp c e in
+      let ref_op, ref_code = try cmp_exp c e with Not_found -> failwith "problem in line 650" in
       let ref_ty = cmp_ty (Ast.TRef r) in
       let slot_id, slot_op = gen_local_op (Ptr ref_ty) "ifnull_slot" in
       let guard_id, guard_op = gen_local_op I1 "ifnull_guard" in
@@ -743,7 +745,7 @@ let cmp_fdecl (c:ctxt) ((_, (_, fid), args, block, reto) : Range.t Ast.fdecl) : 
 
   let fn_body = match reto, fsig.rty with
     | Some ret, Some rty ->
-      let ans, ret_code = cast_op (cmp_exp c ret) rty in
+      let ans, ret_code = (* try *) cast_op (cmp_exp c ret) rty in (* with Not_found -> failwith "problem in line 748" in *)
       args_code >@ block_code >@ ret_code >:: T (Ret (Some ans))
     | None, None ->
       args_code >@ block_code >:: T (Ret None)
@@ -783,7 +785,7 @@ let rec cmp_cinits (c:ctxt) (is:Range.t Ast.cinits) : stream =
   begin match is with
     |(field_id,init)::t->
       let path = Ast.ThisId field_id in
-      let (_,o2,pathstream) = cmp_path c path in
+      let (_,o2,pathstream) = try cmp_path c path with Not_found -> failwith "problem in line 788" in
       let o2_type = begin match (fst o2) with
 	| Ptr t -> t
 	| _ -> failwith "o2 should have been a pointer"
@@ -816,7 +818,7 @@ let rec cmp_cinits (c:ctxt) (is:Range.t Ast.cinits) : stream =
 
 let rec work_es_list (c:ctxt) (es) : (operand list) * (stream) =
   begin match es with
-    |h::t-> let (op,str1) = cmp_exp c h in
+    |h::t-> let (op,str1) = try cmp_exp c h  with Not_found -> failwith "problem in line 821" in
 	    let typ1 = fst op in
 	    let (olist,str2) = work_es_list c t in
 	    (op::olist,str1@str2)
@@ -828,7 +830,12 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let thisop = this_op c in
   let op_list = thisop::op_list_old in
   let c3 = add_local c2 cid thisop in
-  let csig = lookup_csig c3 cid in
+let csig =
+try
+   lookup_csig c3 cid 
+with Not_found -> failwith "problem on line 836"
+in
+
   let ctor_fn = csig.ctor in
   let super_cid_opt = csig.ext in
   let expression = Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange,cid)))) in
@@ -836,7 +843,7 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
     begin match super_cid_opt with
       | Some super_cid -> print_string("\n\nThe class is "^cid);
 	print_string("\nThe super_id is: "^super_cid);
-	let super_csig = lookup_csig c3 super_cid in
+	let super_csig = try lookup_csig c3 super_cid with Not_found-> failwith "problem on line 846" in
 			  let super_ctor_fn = super_csig.ctor in
 			  begin match super_ctor_fn.ty_args with
 			    |h::t -> t
@@ -867,7 +874,7 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let cinits_code = cmp_cinits c3 new_is in
   let call_insns = 
     begin match csig.ext with
-      | Some super_class -> let csig_super = lookup_csig c3 super_class in
+      | Some super_class -> let csig_super = try lookup_csig c3 super_class with Not_found -> failwith "problem on line 877 " in
 			    let super_ctor_fn = csig_super.ctor in
 			    let fn_gid = super_ctor_fn.name in
 			    let typ = Fptr (super_ctor_fn.ty_args,super_ctor_fn.rty) in
@@ -882,8 +889,7 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let ret_cmd = [T(Ret(Some thisop))] in
   let code = insns@super_op_stream@super_stream@cinits_code
     @call_insns@set_vtable_insns@ret_cmd in
-  build_fdecl c ctor_fn op_list code
-
+  build_fdecl c3 ctor_fn op_list code
 
 (* Compile a class definition *)
 let cmp_cdecl (c:ctxt) ((cid, extopt, fs, ctor, ms):Range.t Ast.cdecl) : ctxt =
