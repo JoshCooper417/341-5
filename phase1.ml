@@ -300,12 +300,14 @@ let cmp_const  (cn:Range.t Ast.const) : operand * stream =
 (* Compile an expression, yielding a value computed by the stream and
  * stored in the resulting (usually fresh) operand. *)
 let rec cmp_exp (c:ctxt) (exp:Range.t Ast.exp) : (operand * stream) =
+  	print_string("\nHere, and the exp is "^(Astlib.string_of_exp exp));
   match exp with
     | Ast.Const cn -> cmp_const cn
 
     | Ast.This info -> (this_op c, [])
 
-    | Ast.LhsOrCall lhsc -> cmp_lhs_or_call c lhsc 
+    | Ast.LhsOrCall lhsc -> print_string("\nHere, and the exp "^(Astlib.string_of_exp exp)^" is actually a LhsOrCall");
+      cmp_lhs_or_call c lhsc 
 
     | Ast.Binop (bop, e1, e2) -> 
 	  let (op1, code1) = try cmp_exp c e1 with Not_found -> failwith "problem in line 311" in
@@ -394,13 +396,15 @@ and cmp_length_of_array (c:ctxt) (es:Range.t Ast.exp list) : operand option * st
  * left-hand-side computes an address in memory to which a value can be
  * stored.  We therefore do not dereference the pointer here.  *)
 and cmp_lhs (c:ctxt) (l:Range.t Ast.lhs) : operand * stream =
+print_string("\nHere, and now the exp we're processing is is "^(Astlib.ml_string_of_exp (Ast.LhsOrCall(Ast.Lhs l))));
   match l with
     | Ast.Var(_, id) -> 
       begin match lookup_local id c, lookup_global_val id c with
         | None, None -> failwith ("cmp_lhs: variable not in the context: " ^ id)
         | None, Some op | Some op, _ -> (op, [])
 	  end
-    | Ast.Path p -> let (_, op, code) = cmp_path c p in (op, code)
+    | Ast.Path p -> print_string("\nAbout to compile this path then.");
+      let (_, op, code) = cmp_path c p in (op, code)
     | Ast.Index (lhsc, exp) ->
 	  let (array_ptr, array_code) = try cmp_lhs_or_call c lhsc with Not_found -> failwith"problem in line 405" in
 	  let (index, index_code) = try cmp_exp c exp with Not_found -> failwith "problem in line 406" in   
@@ -423,7 +427,8 @@ and cmp_lhs (c:ctxt) (l:Range.t Ast.lhs) : operand * stream =
    we dereference the resulting pointer. *)
 and cmp_lhs_or_call (c:ctxt) (lc:Range.t Ast.lhs_or_call) : operand * stream =
   match lc with
-    | Ast.Lhs l -> 
+    | Ast.Lhs l ->
+(* print_string("\nHere, and the exp we're processing is is "^(Astlib.ml_string_of_exp (Ast.LhsOrCall lc))); *)
       let (t,_) as lhs_op, lhs_code = cmp_lhs c l in
       begin match t with
         | Ptr t' ->
@@ -499,19 +504,19 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
  * that method.
  *)
 and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
-  let c_signature =
-(* try *)
- List.assoc (lookup_this c) (get_csigs c) in 
-(* with *)
-(*   |Not_found -> failwith "problem in line 505" in *)
- let fields = c_signature.fields in
- let methods = c_signature.methods in
- let (first_op,insns1,class_string,id_string) = 
+
+ let (first_op,insns1,class_string,id_string,fields,methods,c_signature) = 
     begin match p with
     | Ast.ThisId (id) ->
+        let _c_signature =
+	  print_string("\nAnd now we need to compile the ThisId so first let's do a lookup");
+	  List.assoc (lookup_this c) (get_csigs c) in 
+	let _fields = _c_signature.fields in
+	let _methods = _c_signature.methods in
        let op1 = this_op c in
-       (op1,[],(lookup_this c),(snd id))
+       (op1,[],(lookup_this c),(snd id),_fields,_methods,_c_signature)
     | Ast.PathId (l_or_call,id)->
+     
       print_string("Problem?");
       let (op,str) = try cmp_lhs_or_call c l_or_call with Not_found -> failwith"problem in line 516"in
       print_string("No");
@@ -520,7 +525,12 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
 	| Ptr (Namedt (class_name)) -> class_name
 	| _ -> failwith "Should have returned a Ptr(Namedt(cid)) in cmp_path"
       end in
-      (op,str, cid ,(snd id))
+       let _c_signature =
+	  print_string("\nAnd now we need to compile the ThisId so first let's do a lookup");
+	  (lookup_csig c cid) in 
+	let _fields = _c_signature.fields in
+	let _methods = _c_signature.methods in
+      (op,str, cid ,(snd id),_fields,_methods,_c_signature)
     end in
       let op1 = this_op c in
       let start = 1 in
@@ -742,15 +752,20 @@ let cmp_fdecl (c:ctxt) ((_, (_, fid), args, block, reto) : Range.t Ast.fdecl) : 
       | None -> args, lookup_fn c fid 
       | Some cid -> this_op c::args, List.assoc fid (lookup_csig c cid).methods
   in
-
+  print_string("Starting function " ^ fid);
   let fn_body = match reto, fsig.rty with
     | Some ret, Some rty ->
-      let ans, ret_code = (* try *) cast_op (cmp_exp c ret) rty in (* with Not_found -> failwith "problem in line 748" in *)
+      print_string("\n and the rty is: "^(string_of_ty rty));
+      let ans, ret_code =
+	print_string("\nand the ret is "^(Astlib.string_of_exp ret));
+	 let e = try cmp_exp c ret with Not_found -> failwith "problem in line 750" in
+	 cast_op (e) rty in
       args_code >@ block_code >@ ret_code >:: T (Ret (Some ans))
     | None, None ->
       args_code >@ block_code >:: T (Ret None)
     | _, _ -> failwith "fdecl sig and return operand don't match"
   in
+print_string("\nEnding function " ^ fid);
   build_fdecl c fsig args fn_body
 
 
@@ -895,18 +910,21 @@ in
 let cmp_cdecl (c:ctxt) ((cid, extopt, fs, ctor, ms):Range.t Ast.cdecl) : ctxt =
   let c' = set_this c (Some cid) in
   let c' = cmp_ctor c' cid extopt ctor in
-  let c' = List.fold_left cmp_fdecl c' ms in
+  let c' = try List.fold_left cmp_fdecl c' ms with Not_found -> failwith "problem on line 898 " in
   set_this c' None
 
 (* Compile all of the program's top-level declarations, producing a
    new context *)
 let cmp_prog (c:ctxt) (p:Range.t Ast.prog) : ctxt =
+  let x = try
   List.fold_left (fun c -> function
     | Ast.Gvdecl  vd -> cmp_gvdecl c vd
     | Ast.Gfdecl  fd -> cmp_fdecl c fd
     | Ast.Gefdecl ed -> c
     | Ast.Gcdecl  cd -> cmp_cdecl c cd) c p
-
+with Not_found -> failwith "problem in line 906"
+  in
+x
 (* The Object class. This is set to be the super class in cmp_fctxt whenever 
    a class besides 'Object' has extopt = None. This should be the only class 
    with no super class. *)

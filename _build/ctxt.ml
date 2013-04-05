@@ -102,7 +102,8 @@ let get_fdecls (c:ctxt) : fdecl list = c.fdecls
 (* Access various fields *)
 let get_efdecls (c:ctxt) : Ll.fn list = List.map snd c.externals
 let get_namedts (c:ctxt) = c.namedts
-let get_csigs (c:ctxt) : (string * csig) list = c.csigs
+let get_csigs (c:ctxt) : (string * csig) list =
+ c.csigs
 
 (* Look up translation info for class 'cid' *)
 let lookup_csig (c:ctxt) (cid:string) : csig =
@@ -111,6 +112,7 @@ let lookup_csig (c:ctxt) (cid:string) : csig =
 
 (* If in class scope, get current class identifier *)
 let lookup_this (c:ctxt) : string =
+  print_string("\nlooking up in the ctxt the this csig");
   match c.this with 
     | Some cid -> cid 
     | None -> raise Not_found

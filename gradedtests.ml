@@ -480,7 +480,7 @@ let my_tests : suite = [
 
 
 let graded_tests : suite = 
-  my_tests
-  (* typechecking_tests @ *)
-  (* file_tests @ *)
-  (* manual_tests *)
+  (* my_tests *)
+  typechecking_tests @
+  file_tests @
+  manual_tests
