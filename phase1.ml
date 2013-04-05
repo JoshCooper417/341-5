@@ -95,6 +95,7 @@ let cast_ops ops tys : operand list * stream =
     (op::ops, cast@stream)
   ) ops tys ([],[])
 
+
 (* Replace or cons onto assoc list. Used for building vtables. *)
 let rec replace_or_assoc a (k, v) =
   match a with
@@ -304,7 +305,7 @@ let rec cmp_exp (c:ctxt) (exp:Range.t Ast.exp) : (operand * stream) =
 
     | Ast.This info -> (this_op c, [])
 
-    | Ast.LhsOrCall lhsc -> cmp_lhs_or_call c lhsc
+    | Ast.LhsOrCall lhsc ->cmp_lhs_or_call c lhsc
 
     | Ast.Binop (bop, e1, e2) -> 
 	  let (op1, code1) = cmp_exp c e1 in
@@ -439,8 +440,10 @@ and cmp_lhs_or_call (c:ctxt) (lc:Range.t Ast.lhs_or_call) : operand * stream =
 and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
   (* Provide common interface for direct/indirect calls *)
   let pack fn = (fn.ty_args, fn.rty, Gid fn.name) in
-  let call_of (argtys, rty, opn) args =
+   
+  let call_of (argtys, rty, opn) args = print_endline ("Length of args: "^(string_of_int (List.length args))^"length of argtys:"^(string_of_int (List.length argtys))^"\n");
     let args', code = cast_ops args argtys in
+   
     let fop = (Fptr (argtys, rty), opn) in
     match rty with
       | None -> (None, code >:: I (Call (None, fop, args')))
@@ -454,8 +457,30 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
       let fn = lookup_fn c id in
       let (op, call_code) = call_of (pack fn) args in
       (op, arg_code >@ call_code)
-    | Ast.SuperMethod ((_,id), es) -> failwith "phase1.ml: supermethod not implemented"
-    | Ast.PathMethod (p, es) -> failwith "phase1.ml: pathmethod not implemented"
+    | Ast.SuperMethod ((_,id), es) ->
+      let (args, arg_code) = cmp_exps c es in
+      let path = Ast.ThisId (Range.norange, id) in
+      let (_,fnop,stream) = cmp_path c path in
+      let typ_list, typ_opt, fn_id = 
+      begin match fnop with
+	| (Fptr(ty_list, ty_opt), Id fid)-> (ty_list, ty_opt, (mk_gid(string_of_uid fid)))
+	| _ -> failwith "cmp_call expected a function"
+      end in
+      let fn = { name = fn_id; rty = typ_opt; ty_args = typ_list} in
+      let (op, call_code) = call_of (pack fn) args in
+      (op, arg_code >@ stream >@ call_code)
+      (* failwith "phase1.ml: supermethod not implemented" *)
+    | Ast.PathMethod (p, es) ->
+      let (args, arg_code) = cmp_exps c es in
+      let (_,fnop,stream) = cmp_path c p in
+      let typ_list, typ_opt, fn_id = 
+      begin match fnop with
+	| (Fptr(ty_list, ty_opt), Id fid)-> (ty_list, ty_opt,(mk_gid(string_of_uid fid)))
+	| _ -> failwith "cmp_call expected a function"
+      end in
+      let fn = { name = fn_id; rty = typ_opt; ty_args = typ_list} in
+      let (op, call_code) = call_of (pack fn) args in
+      (op, arg_code >@ stream >@ call_code)
 
 
 (* Compile an Oat path:
@@ -483,7 +508,9 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
        let op1 = this_op c in
        (op1,[],(lookup_this c),(snd id))
     | Ast.PathId (l_or_call,id)->
+      print_string("Problem?");
       let (op,str) = cmp_lhs_or_call c l_or_call in
+      print_string("No");
       let cid = 
       begin match (fst op) with
 	| Ptr (Namedt (class_name)) -> class_name
@@ -497,7 +524,8 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
       begin match id_type_option with
       	| Some (s1,idx) ->
 	let (uid2,op2) = gen_local_op s1 id_string in
-      	  (op1,op2,[I(Gep(uid2,op1,[(i32_op_of_int idx)]))])
+	print_string("\nThe type of the uid is: "^(string_of_ty s1)^"\n");
+      	  (op1,op2,[I(Gep(uid2,op1,[(i32_op_of_int 0);(i32_op_of_int idx)]))])
       	| None -> let fn_type_option = get_this_fn_info methods 1 id_string in
       		  begin match fn_type_option with
       		    | Some (s2,idx) -> let vtable = c_signature.vtable in
@@ -679,7 +707,7 @@ let build_fdecl (c:ctxt) (f:fn) (args:operand list) (code:stream) : ctxt =
 
 (* Compile the arguments to a function, mapping them to alloca'd storage space. *)
 let cmp_args (c:ctxt) args : (ctxt * stream * operand list) =
-  List.fold_right
+ List.fold_right
     (fun  (src_ty,(_,src_arg_name)) (c,code,args) ->
       let ll_ty = cmp_ty src_ty in
 
@@ -801,27 +829,37 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let csig = lookup_csig c3 cid in
   let ctor_fn = csig.ctor in
   let super_cid_opt = csig.ext in
+  let expression = Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange,cid)))) in
   let ty_list =
     begin match super_cid_opt with
-      | Some super_cid -> let super_csig = lookup_csig c3 super_cid in
+      | Some super_cid -> print_string("\n\nThe class is "^cid);
+	print_string("\nThe super_id is: "^super_cid);
+	let super_csig = lookup_csig c3 super_cid in
 			  let super_ctor_fn = super_csig.ctor in
-			  super_ctor_fn.ty_args
+			  begin match super_ctor_fn.ty_args with
+			    |h::t -> t
+			    |[]->[]
+			   end
       | None -> []
     end in
   let (super_op_list,super_op_stream) = work_es_list c3 es in
-  print_string("\n\n\nSIZE OF SUPER_OP_LIST: ");
-  print_int((List.length(super_op_list)));
-  print_string("\nSIZE OF ES: ");
-  print_int((List.length(es)));
-  print_string("\nSIZE OF TY_LIST: ");
-  print_int((List.length(ty_list)));
-   begin match ty_list with
-     |h::t->print_string("\nThe type is: "); print_string(string_of_ty h)
-     |[]->()
-   end;
+    (* if (cid="Object") then work_es_list c3 es *)
+    (* else work_es_list c3 (expression::es) in *)
+
+  (* if (List.length(es)<>List.length(ty_list)) then print_endline "THE LISTS ARE NOT THE SAME SIZE"; *)
+  (* print_string("\nSIZE OF ES: "); *)
+  (* print_int((List.length((es)))); *)
+  (* print_string("\nSIZE OF TY_LIST: "); *)
+  (* print_int((List.length(ty_list))); *)
+  (*  begin match ty_list with *)
+  (*    |h::t-> *)
+  (*      print_string("\nThe type is: "); print_string(string_of_ty h); print_string("\n") *)
+  (*    |[]->() *)
+  (*  end; *)
+
   let (super_list,super_stream) = cast_ops super_op_list ty_list in
   let _name_id = (Range.norange,"_name") in
-  let _name_iexp = Ast.Iexp(Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange,cid))))) in
+  let _name_iexp = Ast.Iexp(expression) in
   print_string("\n\n\nThe cid is: "^cid^"\n");
   let new_is = (_name_id,_name_iexp)::is in
   let cinits_code = cmp_cinits c3 new_is in
@@ -840,7 +878,7 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let set_vtable_insns = [I(Gep(this_vtable_id,thisop,
           [i32_op_of_int 0;i32_op_of_int 0]));I(Store(this_vtable_operand,thisop))] in
   let ret_cmd = [T(Ret(Some thisop))] in
-  let code = super_op_stream@super_stream@cinits_code
+  let code = insns@super_op_stream@super_stream@cinits_code
     @call_insns@set_vtable_insns@ret_cmd in
   build_fdecl c ctor_fn op_list code
 

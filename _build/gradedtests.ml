@@ -462,8 +462,25 @@ let manual_tests : suite = [
   ]);
 ]
 
-let graded_tests : suite = 
+
+
+let my_tests : suite = [
+  GradedTest("Easy tests", 20, [  
   
-  typechecking_tests @
-  file_tests @
-  manual_tests
+    ("run48", file_test "run26.oat" "" "0");
+
+  ]);
+
+ 
+ 
+]
+
+
+
+
+
+let graded_tests : suite = 
+  my_tests
+  (* typechecking_tests @ *)
+  (* file_tests @ *)
+  (* manual_tests *)

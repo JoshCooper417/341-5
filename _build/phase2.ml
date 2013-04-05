@@ -215,7 +215,7 @@ let compile_gep_path nts val_op op (path: (ty*opn) list) : insn list =
   match (op, path) with
   | ((Ptr t, _),  (I32, Const 0l)::rest) -> 
      loop t rest [val_op op]
-  | _ -> failwith "compile_gep_path got incorrect parameters"
+  | _ -> failwith ("compile_gep_path got incorrect parameters: "^(Lllib.string_of_operand op))
 
 
 
