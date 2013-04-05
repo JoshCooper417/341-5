@@ -784,39 +784,65 @@ let rec cmp_cinits (c:ctxt) (is:Range.t Ast.cinits) : stream =
  *     add the function to the context and return the extended context.
  *)
 
-let rec work_es_list (c:ctxt) (es) (super:ty list) : (operand list) * (stream) =
-  begin match (es,super) with
-    |(h1::t1,h2::t2)-> let (op,str) = cmp_exp c h1 in
-		       let typ1 = fst op in
-		       let (uid,new_op) = gen_local_op h2 "new_op" in
-		       let bitcast = [I(Bitcast(uid,op,h2))] in
-		       let (olist,str2) = work_es_list c t1 t2 in
-		       (new_op::olist,str@bitcast@str2)
-    |([],[]) -> ([],[])
-    |_,_->failwith "different sized lists in work_es_list"
+let rec work_es_list (c:ctxt) (es) : (operand list) * (stream) =
+  begin match es with
+    |h::t-> let (op,str1) = cmp_exp c h in
+	    let typ1 = fst op in
+	    let (olist,str2) = work_es_list c t in
+	    (op::olist,str1@str2)
+    |[] -> ([],[])
   end
 
 let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let (c2, insns, op_list_old) = cmp_args c ar in
   let thisop = this_op c in
   let op_list = thisop::op_list_old in
-  let c3 = add_local c2 "this" thisop in
+  let c3 = add_local c2 cid thisop in
   let csig = lookup_csig c3 cid in
   let ctor_fn = csig.ctor in
-  let ty_list = ctor_fn.ty_args in
-  let (super_op_list,super_stream) = work_es_list c3 es ty_list in
+  let super_cid_opt = csig.ext in
+  let ty_list =
+    begin match super_cid_opt with
+      | Some super_cid -> let super_csig = lookup_csig c3 super_cid in
+			  let super_ctor_fn = super_csig.ctor in
+			  super_ctor_fn.ty_args
+      | None -> []
+    end in
+  let (super_op_list,super_op_stream) = work_es_list c3 es in
+  print_string("\n\n\nSIZE OF SUPER_OP_LIST: ");
+  print_int((List.length(super_op_list)));
+  print_string("\nSIZE OF ES: ");
+  print_int((List.length(es)));
+  print_string("\nSIZE OF TY_LIST: ");
+  print_int((List.length(ty_list)));
+   begin match ty_list with
+     |h::t->print_string("\nThe type is: "); print_string(string_of_ty h)
+     |[]->()
+   end;
+  let (super_list,super_stream) = cast_ops super_op_list ty_list in
+  let _name_id = (Range.norange,"_name") in
+  let _name_iexp = Ast.Iexp(Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange,cid))))) in
+  print_string("\n\n\nThe cid is: "^cid^"\n");
+  let new_is = (_name_id,_name_iexp)::is in
+  let cinits_code = cmp_cinits c3 new_is in
   let call_insns = 
     begin match csig.ext with
-      | Some super_class -> let csig_super = lookup_csig c2 super_class in
+      | Some super_class -> let csig_super = lookup_csig c3 super_class in
 			    let super_ctor_fn = csig_super.ctor in
 			    let fn_gid = super_ctor_fn.name in
 			    let typ = Fptr (super_ctor_fn.ty_args,super_ctor_fn.rty) in
 			    let fn_operand:operand = (typ, (Gid fn_gid)) in
-			    [I(Call(None,fn_operand,super_op_list))]
+			    [I(Call(None,fn_operand,super_list))]
       | None->[]
     end in
-  (* let ret_cmd = [T(Ret(Some ))] in *)
-  failwith "phase1.ml: compile_ctor not implemented"
+  let vtable_ptr = csig.vtable in
+  let (this_vtable_id,this_vtable_operand) = gen_local_op (fst vtable_ptr) "this_vtable" in
+  let set_vtable_insns = [I(Gep(this_vtable_id,thisop,
+          [i32_op_of_int 0;i32_op_of_int 0]));I(Store(this_vtable_operand,thisop))] in
+  let ret_cmd = [T(Ret(Some thisop))] in
+  let code = super_op_stream@super_stream@cinits_code
+    @call_insns@set_vtable_insns@ret_cmd in
+  build_fdecl c ctor_fn op_list code
 
 
 (* Compile a class definition *)

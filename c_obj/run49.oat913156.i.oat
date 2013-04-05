@@ -1,0 +1,23 @@
+# 1 "./tests/run49.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "./tests/run49.oat"
+class A {
+  B b;
+  new () () 
+    this.b = new B();
+  {
+    print_string("A");
+  }
+};
+
+class B {
+  new () () {
+    print_string("B");
+  }
+};
+
+int program(int argc, string[] argv) {
+  A a = new A();
+  return 0;
+}

@@ -1,0 +1,15 @@
+# 1 "./tests/run9.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "./tests/run9.oat"
+class A {
+  string? str;
+  new () () { }
+  string? f() { this.str = "hello"; return this.str; }
+};
+
+int program (int argc, string[] argv) {
+  A a = new A ();
+  if? (string x = a.f()) print_string (x);
+  return 0;
+}

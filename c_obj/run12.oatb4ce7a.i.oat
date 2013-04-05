@@ -1,0 +1,14 @@
+# 1 "./tests/run12.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "./tests/run12.oat"
+class A {
+  int[] arr;
+  new () () { }
+};
+
+int program (int argc, string[] argv) {
+  A a = new A ();
+  return 0;
+}
+

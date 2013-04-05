@@ -1,0 +1,9 @@
+# 1 "./tests/run38.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "./tests/run38.oat"
+int program (int argc, string[] argv) {
+  fail ("failed");
+  return 0;
+}
+
