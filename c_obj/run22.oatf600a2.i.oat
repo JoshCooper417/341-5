@@ -1,0 +1,19 @@
+# 1 "tests/run22.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "tests/run22.oat"
+class A {
+  string str;
+  new () () this.str="non-bull"; { }
+};
+
+class B <: A {
+  int[] arr;
+  new () () { }
+};
+
+int program (int argc, string[] argv) {
+  B b = new B ();
+  return 0;
+}
+

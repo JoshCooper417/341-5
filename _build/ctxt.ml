@@ -112,7 +112,6 @@ let lookup_csig (c:ctxt) (cid:string) : csig =
 
 (* If in class scope, get current class identifier *)
 let lookup_this (c:ctxt) : string =
-  print_string("\nlooking up in the ctxt the this csig");
   match c.this with 
     | Some cid -> cid 
     | None -> raise Not_found

@@ -1,0 +1,17 @@
+# 1 "tests/run41.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "tests/run41.oat"
+class A {
+  new () () { }
+};
+
+class B {
+  A a;
+  new () () { }
+};
+
+int program (int argc, string[] argv) {
+  B b = new B ();
+  return 0;
+}
