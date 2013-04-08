@@ -1,0 +1,26 @@
+# 1 "tests/run25.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "tests/run25.oat"
+class A {
+  new () () {}
+  unit f () {
+    print_string ("A");
+    return;
+  }
+};
+
+class B <: A {
+  new () () {}
+  unit f () {
+    print_string ("B");
+    return;
+  }
+};
+
+int program (int argc, string[] argv) {
+  B b = new B ();
+  b.f();
+  return 0;
+}
+

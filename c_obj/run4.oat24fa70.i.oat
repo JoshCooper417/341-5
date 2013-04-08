@@ -1,0 +1,14 @@
+# 1 "tests/run4.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "tests/run4.oat"
+class A {
+  int i;
+  new () () { this.i = 10; }
+};
+
+int program (int argc, string[] argv) {
+  A a = new A ();
+  return a.i;
+}
+

@@ -291,7 +291,7 @@ let cmp_const  (cn:Range.t Ast.const) : operand * stream =
   match cn with
     | Ast.Cnull _      -> ((Ptr I8, Null), [])
     | Ast.Cbool(_,b)   -> (i1_op_of_bool b, [])
-    | Ast.Cint(_,i)    -> (i32_op_of_int32 i, [])
+    | Ast.Cint(_,i)    -> print_endline("FOUND A CONST OF VAL "^(Int32.to_string i)); (i32_op_of_int32 i, [])
     | Ast.Cstring(_,s) -> 
       let (gid, gop) = gen_global_op (cmp_ty Ast.(TRef RString)) "_const_str" in
 	  (gop, [G (gop, s)])
@@ -300,13 +300,13 @@ let cmp_const  (cn:Range.t Ast.const) : operand * stream =
 (* Compile an expression, yielding a value computed by the stream and
  * stored in the resulting (usually fresh) operand. *)
 let rec cmp_exp (c:ctxt) (exp:Range.t Ast.exp) : (operand * stream) =
-  	(* print_string("\nHere, and the exp is "^(Astlib.string_of_exp exp)); *)
+  	print_endline("\n The exp in CMP_EXP is "^(Astlib.string_of_exp exp));
   match exp with
     | Ast.Const cn -> cmp_const cn
 
     | Ast.This info -> (this_op c, [])
 
-    | Ast.LhsOrCall lhsc -> print_string("\nHere, and the exp "^(Astlib.string_of_exp exp)^" is actually a LhsOrCall");
+    | Ast.LhsOrCall lhsc ->
       cmp_lhs_or_call c lhsc 
 
     | Ast.Binop (bop, e1, e2) -> 
@@ -324,7 +324,7 @@ let rec cmp_exp (c:ctxt) (exp:Range.t Ast.exp) : (operand * stream) =
 		  | Ast.Lognot _ -> Icmp  (ans_id, Eq, op, i1_op_of_bool false)
 		  | Ast.Not  _   -> Binop (ans_id, Xor, op, i32_op_of_int (-1)))))
 
-    | Ast.Ctor ((info,cid), es) -> 
+    | Ast.Ctor ((info,cid), es) -> print_endline("THE CLASS IS "^cid);
       let ctor = (lookup_csig c cid).ctor in
       let args, arg_code = try cmp_exps c es with Not_found -> failwith "problem in line 327" in
       let this, mem_code = oat_alloc_object c cid in
@@ -398,13 +398,14 @@ and cmp_length_of_array (c:ctxt) (es:Range.t Ast.exp list) : operand option * st
 and cmp_lhs (c:ctxt) (l:Range.t Ast.lhs) : operand * stream =
 print_string("\nHere, and now the exp we're processing is is "^(Astlib.ml_string_of_exp (Ast.LhsOrCall(Ast.Lhs l))));
   match l with
-    | Ast.Var(_, id) -> 
+    | Ast.Var(_, id) -> print_endline("matched lhs to a VAR");
       begin match lookup_local id c, lookup_global_val id c with
         | None, None -> failwith ("cmp_lhs: variable not in the context: " ^ id)
-        | None, Some op | Some op, _ -> (op, [])
+        | None, Some op ->print_string("\nWe've matched to this var 404"); (op, [])
+	| Some op, _ ->print_endline("\nWe've matched to this var 405" ^ (string_of_operand op)); (op, [])
 	  end
-    | Ast.Path p -> (* print_string("\nAbout to compile this path then."); *)
-      let (_, op, code) = cmp_path c p in print_endline("OPERAND IS "^ (string_of_operand op)); (op, code)
+    | Ast.Path p ->print_endline("matched lhs to a PATH");
+      let (_, op, code) = cmp_path c p in (op, code)
     | Ast.Index (lhsc, exp) ->
 	  let (array_ptr, array_code) = try cmp_lhs_or_call c lhsc with Not_found -> failwith"problem in line 405" in
 	  let (index, index_code) = try cmp_exp c exp with Not_found -> failwith "problem in line 406" in   
@@ -426,17 +427,19 @@ print_string("\nHere, and now the exp we're processing is is "^(Astlib.ml_string
 (* When we treat a left-hand-side as an expression yielding a value,
    we dereference the resulting pointer. *)
 and cmp_lhs_or_call (c:ctxt) (lc:Range.t Ast.lhs_or_call) : operand * stream =
+      print_string("\n\n\nThe exp is: "^(Astlib.string_of_exp(Ast.LhsOrCall lc)));
+
   match lc with
-    | Ast.Lhs l ->
-(* print_string("\nHere, and the exp we're processing is is "^(Astlib.ml_string_of_exp (Ast.LhsOrCall lc))); *)
+    | Ast.Lhs l -> 
+      print_endline ("The exp in cmp_lhs_or_call is an LHS");
       let (t,_) as lhs_op, lhs_code = cmp_lhs c l in
       begin match t with
         | Ptr t' ->
           let ans_id, ans_op = gen_local_op t' "lhs_or_call" in
           (ans_op, lhs_code >:: I (Load (ans_id, lhs_op)))
-        | _ -> failwith "cmp_lhs_or_call: cmp_lhs did not return ptr type"
+        | _ -> print_endline("The failing exp is" ^Astlib.(string_of_exp(Ast.LhsOrCall lc)));failwith "cmp_lhs_or_call: cmp_lhs did not return ptr type" 
       end
-    | Ast.Call ca -> match cmp_call c ca with
+    | Ast.Call ca ->print_string("\nCompiling a call"); match cmp_call c ca with
         | (None, _) -> failwith "cmp_lhs_or_call: call did not return operand"
         | (Some op, stream) -> (op, stream)
 
@@ -466,6 +469,7 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
       (op, arg_code >@ call_code)
 
     | Ast.SuperMethod ((_,id), es) ->
+        print_endline("SUPER METHOD CALLED");
       let (args, arg_code) = try cmp_exps c es with Not_found -> failwith "problem in line 461" in
       let path = Ast.ThisId (Range.norange, id) in
       let (op,fnop,stream) = try cmp_path c path with Not_found -> failwith "problem in line 463" in
@@ -486,6 +490,7 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
       (* failwith "phase1.ml: supermethod not implemented" *)
 
     | Ast.PathMethod (p, es) ->
+      print_endline("PATH METHOD CALLED");
       let x = 
 	try
       let (args, arg_code) = try cmp_exps c es with Not_found -> failwith "problem in line 474" in
@@ -540,16 +545,16 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
 
 
     | Ast.PathId (l_or_call,id)->
-   
-      let (op,str) = try cmp_lhs_or_call c l_or_call with Not_found -> failwith"problem in line 516"in
-
+      let (op,str) = cmp_lhs_or_call c l_or_call in
+      print_string("\nThe exp in cmp_path is: "^(Astlib.string_of_exp(Ast.LhsOrCall l_or_call)));
+      print_string("\nThe op in cmp_path is: "^(string_of_operand op));
       (* get the class of the current object *)
       let cid =
       begin match (fst op) with
       	| Ptr (Namedt (class_name)) -> class_name
-      	| _ -> failwith "Should have returned a Ptr(Namedt(cid)) in cmp_path"
+      	| _ -> print_endline("The non pointer op is "^string_of_operand op);failwith "Should have returned a Ptr(Namedt(cid)) in cmp_path"
       end in
- 
+      print_endline("cid in compile path is "^ cid);
        let _c_signature =  try (lookup_csig c cid) with Not_found -> failwith "problem line 540" in 
             (* get the vtable of the class*)
        let vtable_op = _c_signature.vtable in
@@ -575,7 +580,8 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
       		  begin match fn_type_option with
       		    | Some (s2,idx) -> let vtable = c_signature.vtable in
       		  		       let fptr = Fptr (s2.ty_args,s2.rty) in
-				       
+				       let vtable_id_ptr, vtable_ptr_op = gen_local_op (Ptr(fst c_signature.vtable)) "vtable_ptr" in
+				       let vtable_id, vtable_op = gen_local_op (fst c_signature.vtable) "vtable" in
 				       (* print_endline ("the function name is "^ (string_of_gid s2.name)); *)
 
 				       begin match s2.ty_args with
@@ -587,7 +593,9 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
       		  		       let ptr_op = gen_local_op ptr id_string in
 
 				        let insns = [I(Load(uid2,(snd ptr_op)));
-						     I(Gep((fst ptr_op),vtable,[i32_op_of_int 0;i32_op_of_int idx]))]@insns1 in
+						     I(Gep((fst ptr_op),vtable_op,[i32_op_of_int 0;i32_op_of_int idx]));
+						     I(Load(vtable_id,vtable_ptr_op));
+						     I(Gep(vtable_id_ptr, first_op, [i32_op_of_int 0]))]@insns1 in
 
 				        (first_op,op2,insns)
       		    | None -> failwith "Impossible case."
@@ -661,11 +669,16 @@ and cmp_conditional c guard_op st sto : stream =
 
 (* Compile statements. *)
 and cmp_stmt (c:ctxt) (stmt : Range.t Ast.stmt) : stream =
+  print_endline("The statement we're compiling is "^(Astlib.string_of_stmt stmt));
   match stmt with
     | Ast.Assign (lhs ,e) ->
-      begin match cmp_lhs c lhs with
+      let l =  cmp_lhs c lhs in
+      (* print_endline("LHS compiled by cmp_lhs is "^ (string_of_operand(fst l))); *)
+      begin match l with
         | (Ptr ty,_) as lop, lhs_code ->
-          let eop, exp_code = try cast_op (cmp_exp c e) ty with Not_found -> failwith "problem in line 619" in
+	  (* let c_e, _ = (cmp_exp c e) in *)
+	  (* print_endline("EXPRESSION compiled by cmp_exp is "^(string_of_operand(c_e))); *)
+          let eop, exp_code = cast_op (cmp_exp c e) ty in
           lhs_code >@ exp_code >@ [I (Store (eop, lop))]
         | _ -> failwith "cmp_stmt: lhs of assign is not of ptr type"
       end
@@ -714,40 +727,72 @@ and cmp_stmt (c:ctxt) (stmt : Range.t Ast.stmt) : stream =
         I (Call (None, op_of_fn oat_abort_fn, [i32_op_of_int (-1)]))
 
     | Ast.Cast (cid, (_, id), e, st, sto)  ->
-      let op = gen_local_op (Namedt(cid)) "cast" in
+      let op = gen_local_op (Ptr(Ptr(Namedt(cid)))) "cast_ptr" in
       let c2 = add_local c id (snd op) in
+      let assign_op, assign_code = (cmp_exp c2 e) in
+      let assign_stream = [I(Bitcast((fst op), assign_op, (Ptr(Namedt(cid)))))]@assign_code in
+      (* let assign_stream =[] in *)
       let stmt_stream = cmp_stmt c2 st in
       let stmt_opt_stream = begin match sto with
-	                      |Some s-> cmp_stmt c s
-			      |None -> []
+  	                      |Some s->(cmp_stmt c s)
+  			      |None -> []
                             end in
-      let obj_opt = lookup_local id c in
-					      
-					      let right_vtable_id, right_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "rvtable" in
-					      let left_vtable_id, left_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "lvtable" in
-					      let left_csig = lookup_csig c cid in
-					      let (left_vtable_operand) = left_csig.vtable in
-  let lbl_bound_check = mk_lbl_hint "bound_check"in
-  let lbl_move_up = mk_lbl_hint "move_up" in
-  let lbl_check_curr = mk_lbl_hint "check_curr" in
-  let lbl_end_no = mk_lbl_hint "end_no" in
-  let lbl_end_yes = mk_lbl_hint "end_yes" in
-  let (cmp_id,cmp_operand) = gen_local_op I1 "compare" in
-  let (rvtable_id,rvtable_operand) = gen_local_op (Ptr I8) "rvtable" in
-  let (leftvtable_cast_op, cast_leftvtable_op_insn) = (cast_op (left_vtable_operand, []) (Ptr(Ptr I8))) in
-  let (rightvtable_cast_op, cast_rightvtable_op_insn) = (cast_op (right_vtable_ptr, []) (Ptr(Ptr I8))) in
-  let load_insn = [I(Load(rvtable_id,rightvtable_cast_op))] in
-  let left_load_insn = [I(Load(left_vtable_id,leftvtable_cast_op))] in
-  let cmp_bound_insn = [I(Icmp(cmp_id, Eq, rvtable_operand, (Ptr(I8), Null)))] in
-  let cbr_insn1 = [T(Cbr(cmp_operand,lbl_end_no,lbl_check_curr))] in
-  let cmp_insn = [I(Icmp(cmp_id,Eq,left_vtable_ptr,rvtable_operand))] in
-  let cbr_insn2 = [T(Cbr(cmp_operand,lbl_end_yes,lbl_move_up))] in
-  let move_up_insn = [I(Gep(right_vtable_id, rvtable_operand, [i32_op_of_int 0]))] in
-  let loop = [T(Br(lbl_bound_check))]>@[L(lbl_bound_check)]>@cast_leftvtable_op_insn>@load_insn>@cast_rightvtable_op_insn>@cmp_bound_insn>@cbr_insn1>@
-    [L(lbl_check_curr)]>@cmp_insn>@cbr_insn2>@
-             [L(lbl_move_up)]>@move_up_insn>@[T(Br(lbl_bound_check))]>@
-	     [L(lbl_end_yes)]>@stmt_stream
-    >@[L(lbl_end_no)]>@stmt_opt_stream in loop
+
+      let right_vtable_id, right_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "rvtable" in
+      let left_vtable_id, left_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "lvtable" in
+      let left_csig = lookup_csig c cid in
+      let (left_vtable_operand) = left_csig.vtable in
+      let lbl_init = mk_lbl_hint "init" in
+      let lbl_bound_check = mk_lbl_hint "bound_check"in
+      let lbl_move_up = mk_lbl_hint "move_up" in
+      let lbl_check_curr = mk_lbl_hint "check_curr" in
+      let lbl_end_no = mk_lbl_hint "end_no" in
+      let lbl_end_yes = mk_lbl_hint "end_yes" in
+      let lbl_end = mk_lbl_hint "end" in
+      let (cmp_id,cmp_operand) = gen_local_op I1 "compare" in
+      let (rvtable_id,rvtable_operand) = gen_local_op (Ptr I8) "rvtable" in
+      let (leftvtable_cast_op, cast_leftvtable_op_insn) = (cast_op (left_vtable_operand, []) (Ptr(Ptr I8))) in
+      (* let (rightvtable_cast_op, cast_rightvtable_op_insn) = (cast_op (right_vtable_ptr, []) (Ptr(Ptr I8))) in *)
+      let rcast_id, rcast_op = gen_local_op  (Ptr(Ptr I8)) "cast_vtable" in
+
+      let cast_right_vtable_insn =  [I(Bitcast(rcast_id, right_vtable_ptr,(Ptr(Ptr I8))))] in
+      let load_right_vtable_insn = [(I(Load(rvtable_id,rcast_op)))] in
+      let left_load_insn = [I(Load(left_vtable_id,leftvtable_cast_op))] in
+      let cmp_bound_insn = [I(Icmp(cmp_id, Eq, rvtable_operand, (Ptr(I8), Null)))] in
+      let cbr_insn1 = [T(Cbr(cmp_operand,lbl_end_no,lbl_check_curr))] in
+      let cmp_insn = [I(Icmp(cmp_id,Eq,left_vtable_ptr,rvtable_operand))] in
+      let cbr_insn2 = [T(Cbr(cmp_operand,lbl_end_yes,lbl_move_up))] in
+      let move_up_insn = [I(Gep(right_vtable_id, rvtable_operand, [i32_op_of_int 0]))] in
+      
+      
+      let init_insns = [T(Br(lbl_init))]>@[L(lbl_init)]>@[I(Gep(right_vtable_id, assign_op, [i32_op_of_int 0]))]>@[T(Br(lbl_bound_check))] in
+	              
+      let check_bound_insns = [L(lbl_bound_check)]>@
+	cast_leftvtable_op_insn>@left_load_insn>@cast_right_vtable_insn>@load_right_vtable_insn>@cmp_bound_insn>@cbr_insn1 in
+      
+      let check_curr_insns = 	[L(lbl_check_curr)]>@cmp_insn>@cbr_insn2 in
+      let move_up_insns = [L(lbl_move_up)](* >@move_up_insn*)>@ [T(Br(lbl_bound_check))] in
+      let end_yes_insns = [L(lbl_end_yes)](* >@assign_stream>@stmt_stream *) in
+      let end_no_insns = [L(lbl_end_no)](*> @stmt_opt_stream *) in
+      let loop =  [T(Br(lbl_init))]>@[L(lbl_init)]>@assign_code
+	          >@[I(Gep(right_vtable_id, assign_op, [i32_op_of_int 0]))]
+	           >@[T(Br(lbl_bound_check))]>@
+	          [L(lbl_bound_check)]
+	             >@cast_leftvtable_op_insn>@left_load_insn
+	             >@cast_right_vtable_insn>@load_right_vtable_insn
+	             >@cmp_bound_insn >@cbr_insn1>@
+		  [L(lbl_check_curr)]
+	             >@cmp_insn>@cbr_insn2>@
+		  [L(lbl_move_up)]
+	             >@[I(Gep(right_vtable_id, rvtable_operand, [i32_op_of_int 0]))]>@
+		     [T(Br(lbl_bound_check))]>@
+		  [L(lbl_end_yes)]
+	             >@assign_stream>@stmt_stream>@[T(Br(lbl_end))]>@
+		  [L(lbl_end_no)]
+	            >@stmt_opt_stream >@[T(Br(lbl_end))]>@
+		  [L(lbl_end)]
+(* init_insns>@check_bound_insns>@check_curr_insns>@move_up_insns>@end_yes_insns>@end_no_insns *) in
+      loop
 
 and cmp_stmts (c:ctxt) (stmts:Range.t Ast.stmts) : stream =
   List.fold_left (fun code s -> code >@ (cmp_stmt c s)) [] stmts
@@ -782,9 +827,9 @@ let rec print_stream(insns: elt list):unit =
 
 let build_fdecl (c:ctxt) (f:fn) (args:operand list) (code:stream) : ctxt =
   (* print_stream code; *)
-  print_string("\nThe big list's in fdecl size is: ");
-  print_int(List.length(code));
-  print_string("\n");
+  (* print_string("\nThe big list's in fdecl size is: "); *)
+  (* print_int(List.length(code)); *)
+  (* print_string("\n"); *)
   let blocks_of_stream (c:ctxt) (elts:stream) : ctxt * bblock list =
     (* print_endline "PRINTING STREAM"; *)
     (* print_stream(elts); *)
@@ -822,12 +867,6 @@ let build_fdecl (c:ctxt) (f:fn) (args:operand list) (code:stream) : ctxt =
     ll_cfg = cfg;
   } 
   in
-  print_string("\nThe fdecl's size is: ");
-  print_int(List.length(cfg));
-  print_string("\n");
-
-print_string("\nThe fdecl's name is: "^(string_of_gid f.name)^"\n");
-
   add_fdecl c fdecl
 
 (* Compile the arguments to a function, mapping them to alloca'd storage space. *)
@@ -944,12 +983,24 @@ let rec cmp_cinits (c:ctxt) (is:Range.t Ast.cinits) : stream =
 
 let rec work_es_list (c:ctxt) (es) : (operand list) * (stream) =
   begin match es with
-    |h::t-> let (op,str1) = try cmp_exp c h  with Not_found -> failwith "problem in line 821" in
-	    let typ1 = fst op in
+    |h::t-> let (op,str1) = cmp_exp c h in
+	    (* let dr_op =  *)
+	    (* begin match op with *)
+	    (*  |(Ptr(t), Id i) ->(t, Id i)  *)
+	    (*  |(Ptr(t), Gid g) -> (t, Gid g) *)
+	    (*  |(Ptr(t), Const c) -> (t, Const c) *)
+	    (*  | _-> op *)
+	    (*  end in *)
 	    let (olist,str2) = work_es_list c t in
 	    (olist@[op],str2@str1)
     |[] -> ([],[])
   end
+
+let rec print_op_list(op_list):unit =
+    begin match op_list with
+  |h::t -> print_endline(string_of_operand h); print_op_list t
+  | [] -> ()
+    end
 
 let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let (c2, insns, op_list_old) = cmp_args c ar in
@@ -972,18 +1023,26 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
 					   lookup_csig c3 super_cid 
 			                   with Not_found-> failwith "superclass definition not found" in
 			  let super_ctor_fn = super_csig.ctor in 
-			   super_ctor_fn.ty_args
+			  begin match super_ctor_fn.ty_args with
+			  | h::t -> t
+			  | [] -> []
+			  end 
 			 
       | None -> []
     end in
   let (super_op_list_pre,super_op_stream) = work_es_list c3 es in
     (* if (cid = "Object") then work_es_list c3 es *)
     (*   else work_es_list c3 (this_obj::es) in *)
+  (* let super_op_list =  *)
+  (*    if (cid = "Object") then super_op_list_pre *)
+  (*    else thisop::super_op_list_pre in *)
+
+  let (super_list,super_stream) = cast_ops super_op_list_pre super_ctor_args in
+
   let super_op_list = 
      if (cid = "Object") then super_op_list_pre
      else thisop::super_op_list_pre in
 
-  let (super_list,super_stream) = cast_ops super_op_list super_ctor_args in
   let thisop_id_opt =
   begin match thisop with
   |(Ptr t, Id i ) -> Some i
@@ -1001,7 +1060,7 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
     begin match super_cid_opt with
       | Some super_class -> let csig_super = try lookup_csig c3 super_class with Not_found -> failwith "failed to look up super class" in
 			    let super_ctor_fn = csig_super.ctor in
-			     let this, mem_code = oat_alloc_object c cid in
+			     let this, mem_code = oat_alloc_object c super_class in
 			     let res_id, res_op = gen_local_op (Ptr (Namedt super_class)) "new_obj" in
 			     (* (res_op, arg_code >@  *)
 			        mem_code >@
@@ -1016,7 +1075,7 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
 
 
   let vtable_ptr = csig.vtable in
-  let (this_vtable_id,this_vtable_operand) = gen_local_op (fst vtable_ptr) "this_vtable" in
+  let (this_vtable_id,this_vtable_operand) = gen_local_op (Ptr(fst vtable_ptr)) "this_vtable" in
   let set_vtable_insns = [I(Store((* thisop *)vtable_ptr, this_vtable_operand));
 			  I(Gep(this_vtable_id,thisop,
 			 [i32_op_of_int 0;i32_op_of_int 0]))] in

@@ -1,0 +1,31 @@
+# 1 "tests/cg_ctor_arguments_available_to_super.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "tests/cg_ctor_arguments_available_to_super.oat"
+class A <: Object {
+  int x;
+  
+  new(int x)() {
+      print_string("printing x \n");
+    print_int(x);
+    print_string("\n");
+    this.x = x;
+
+  }
+};
+
+class B <: A {
+  new(int a, int b)(a*10+b) {
+    print_string("printing a \n");
+    print_int(a);
+    print_string("\n");
+        print_string("printing b \n");
+    print_int(b);
+    print_string("\n");
+  }
+};
+
+int program (int argc, string[] argv) {
+  B b = new B(1,2);
+  return b.x;
+}

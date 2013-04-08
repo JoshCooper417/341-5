@@ -1,0 +1,21 @@
+# 1 "tests/cg_eval_ifnull_notnull_int.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "tests/cg_eval_ifnull_notnull_int.oat"
+class A <: Object { int x; new(int x)() {this.x = x;} };
+
+int try_ifnull(A? a) {
+  int r=0;
+  if?(A aa = a) {
+    r=aa.x;
+  } else {
+    r=12;
+  }
+  return r;
+}
+
+int program (int argc, string[] argv) {
+  return try_ifnull(new A(11));
+}
+
+

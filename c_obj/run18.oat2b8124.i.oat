@@ -1,0 +1,15 @@
+# 1 "tests/run18.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "tests/run18.oat"
+class A {
+  string str;
+  new (string str) () this.str = str; {}
+};
+
+int program (int argc, string[] argv) {
+  A a = new A ("cis341");
+  print_string (a.str);
+  return 0;
+}
+
