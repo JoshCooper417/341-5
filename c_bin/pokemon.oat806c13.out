@@ -1,0 +1,2 @@
+Assertion failed: (NULL != str), function print_string, file runtime.c, line 115.
+54

@@ -467,7 +467,7 @@ let manual_tests : suite = [
 let my_tests : suite = [
   GradedTest("Easy tests", 20, [  
   
-    ("run3", file_test "run3.oat" "" "0");
+    ("run3", file_test "run3.oat" "" "9");
 
   ]);
 

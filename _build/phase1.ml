@@ -924,9 +924,12 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let op_list = thisop::op_list_old in
   let c3 = add_local c2 cid thisop in
 
+  let (_, blockstream) = cmp_block c3 b in
   let csig = lookup_csig c3 cid in
   let ctor_fn = csig.ctor in
   let super_cid_opt = csig.ext in
+
+  let new_id, new_op = gen_local_op (Ptr(Namedt cid)) "new_op" in
 
   let this_obj = Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange, cid)))) in
   let super_ctor_args =
@@ -938,7 +941,6 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
 			                   with Not_found-> failwith "superclass definition not found" in
 			  let super_ctor_fn = super_csig.ctor in 
 			   super_ctor_fn.ty_args
-
 			 
       | None -> []
     end in
@@ -946,48 +948,38 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
     if (cid = "Object") then work_es_list c3 es
       else work_es_list c3 (this_obj::es) in
 
-  (* if (List.length(es)<>List.length(super_ctor_args)) then print_endline "THE LISTS ARE NOT THE SAME SIZE"; *)
-  (* print_string("\nSIZE OF ES: "); *)
-  (* print_int((List.length((es)))); *)
-  (* print_string("\nSIZE OF TY_LIST: "); *)
-  (* print_int((List.length(super_ctor_args))); *)
-  (*  begin match super_ctor_args with *)
-  (*    |h::t-> *)
-  (*      print_string("\nThe type is: "); print_string(string_of_ty h); print_string("\n") *)
-  (*    |[]->() *)
-  (*  end; *)
-
   let (super_list,super_stream) = cast_ops super_op_list super_ctor_args in
-
+  let thisop_id_opt =
+  begin match thisop with
+  |(Ptr t, Id i ) -> Some i
+  | _ -> None
+  end in
   let call_insns = 
     begin match super_cid_opt with
       | Some super_class -> let csig_super = try lookup_csig c3 super_class with Not_found -> failwith "failed to look up super class" in
 			    let super_ctor_fn = csig_super.ctor in
-			     let this, mem_code = oat_alloc_object c super_class in
+			     let this, mem_code = oat_alloc_object c cid in
 			     let res_id, res_op = gen_local_op (Ptr (Namedt super_class)) "new_obj" in
 			     (* (res_op, arg_code >@  *)
 			        mem_code >::
 			       I (Call (Some res_id, op_of_fn super_ctor_fn, this::super_list))
-      | None->[]
+      | None-> []
     end in
 
   let _name_id = (Range.norange,"_name") in
   let _name_iexp = Ast.Iexp(this_obj) in
   let new_is = (_name_id,_name_iexp)::is in
   let cinits_code = cmp_cinits c3 new_is in
-  let thisop_id_opt = begin match thisop with
-    | (Ptr t, Id i) -> Some i
-    | _ -> None
-  end in
+
 
   let vtable_ptr = csig.vtable in
   let (this_vtable_id,this_vtable_operand) = gen_local_op (fst vtable_ptr) "this_vtable" in
-  let set_vtable_insns = [I(Store(thisop,this_vtable_operand));
+  let set_vtable_insns = [I(Store(thisop, this_vtable_operand));
 			  I(Gep(this_vtable_id,thisop,
 			 [i32_op_of_int 0;i32_op_of_int 0]))] in
   let ret_cmd = [T(Ret(Some thisop))] in
   
- let code = ret_cmd@set_vtable_insns@cinits_code@call_insns@super_stream@super_op_stream@insns in
+ let code = ret_cmd@blockstream@set_vtable_insns@cinits_code@call_insns@super_stream@super_op_stream@insns in
 
   build_fdecl c3 ctor_fn op_list code
 
