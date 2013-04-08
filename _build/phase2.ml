@@ -397,5 +397,5 @@ let compile_global (g : Ll.global) =
 compiling the functions in that global context. *)
 let compile_prog (p:Ll.prog) : Cunit.cunit =
   let (globals_cu, globals) = List.split (List.map compile_global p.globals) in
-  let functions_cu = List.map (compile_fdecl p.namedts globals) p.functions in
+  let functions_cu = List.map (compile_fdecl p.namedts globals) p.functions in 
     (List.concat globals_cu) @ (List.concat functions_cu)

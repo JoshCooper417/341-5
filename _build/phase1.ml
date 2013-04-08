@@ -404,7 +404,7 @@ print_string("\nHere, and now the exp we're processing is is "^(Astlib.ml_string
         | None, Some op | Some op, _ -> (op, [])
 	  end
     | Ast.Path p -> (* print_string("\nAbout to compile this path then."); *)
-      let (_, op, code) = cmp_path c p in (op, code)
+      let (_, op, code) = cmp_path c p in print_endline("OPERAND IS "^ (string_of_operand op)); (op, code)
     | Ast.Index (lhsc, exp) ->
 	  let (array_ptr, array_code) = try cmp_lhs_or_call c lhsc with Not_found -> failwith"problem in line 405" in
 	  let (index, index_code) = try cmp_exp c exp with Not_found -> failwith "problem in line 406" in   
@@ -446,7 +446,8 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
   (* Provide common interface for direct/indirect calls *)
   let pack fn = (fn.ty_args, fn.rty, Gid fn.name) in
    
-  let call_of (argtys, rty, opn) args = print_endline ("Length of args: "^(string_of_int (List.length args))^"length of argtys:"^(string_of_int (List.length argtys))^"\n");
+  let call_of (argtys, rty, opn) args = 
+   print_endline ("Length of args: "^(string_of_int (List.length args))^"length of argtys:"^(string_of_int (List.length argtys))^"\n");
     let args', code = cast_ops args argtys in
    
     let fop = (Fptr (argtys, rty), opn) in
@@ -455,6 +456,7 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
       | Some rt -> let id, op = gen_local_op rt "ret" in
         (Some op, code >:: I (Call (Some id, fop, args')))
   in
+
   match ca with
     | Ast.Func ((_,"length_of_array"), es) -> cmp_length_of_array c es
     | Ast.Func ((_,id), es) ->
@@ -466,15 +468,21 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
     | Ast.SuperMethod ((_,id), es) ->
       let (args, arg_code) = try cmp_exps c es with Not_found -> failwith "problem in line 461" in
       let path = Ast.ThisId (Range.norange, id) in
-      let (_,fnop,stream) = try cmp_path c path with Not_found -> failwith "problem in line 463" in
-      let typ_list, typ_opt, fn_id = 
+      let (op,fnop,stream) = try cmp_path c path with Not_found -> failwith "problem in line 463" in
+       let dr_op = 
+	begin match op with
+	|(Ptr(t), id) ->(t, id) 
+	|_ -> failwith "expected a pointer from cmp_path"
+	end in
+      let full_args = dr_op::args in
+      let typ_list, typ_opt = 
       begin match fnop with
-	| (Fptr(ty_list, ty_opt), Id fid)-> (ty_list, ty_opt, (mk_gid(string_of_uid fid)))
-	| _ -> failwith "cmp_call expected a function"
+      	| (Fptr(ty_list, ty_opt), Id fid)-> ty_list, ty_opt
+      	| _ -> failwith "cmp_call expected a function"
       end in
-      let fn = { name = fn_id; rty = typ_opt; ty_args = typ_list} in
-      let (op, call_code) = call_of (pack fn) args in
-      (op, arg_code >@ stream >@ call_code)
+
+      let (op1, call_code) = call_of (typ_list, typ_opt, (snd fnop)) full_args in
+      (op1, arg_code >@ stream >@ call_code)
       (* failwith "phase1.ml: supermethod not implemented" *)
 
     | Ast.PathMethod (p, es) ->
@@ -484,25 +492,21 @@ and cmp_call (c:ctxt) (ca:Range.t Ast.call) : operand option * stream =
       print_endline "tried to compile path \n";
       let (op,fnop,stream) = cmp_path c p in
 	(* try cmp_path c p with Not_found -> failwith "problem in line 475" in *)
+      print_string("Line 487 the operand is: "^(string_of_operand op)^"\n\n");
       let dr_op = 
 	begin match op with
-	|(Ptr(t), id) -> (t, id) 
+	|(Ptr(t), id) ->(t, id) 
 	|_ -> failwith "expected a pointer from cmp_path"
 	end in
       let full_args = dr_op::args in
-      let typ_list, typ_opt, fn_id = 
+      let typ_list, typ_opt = 
       begin match fnop with
-	| (Fptr(ty_list, ty_opt), Id fid)-> (ty_list, ty_opt,(mk_gid(string_of_uid fid)))
-	| _ -> failwith "cmp_call expected a function"
+      	| (Fptr(ty_list, ty_opt), Id fid)-> ty_list, ty_opt
+      	| _ -> failwith "cmp_call expected a function"
       end in
-      let fn = { name = fn_id; rty = typ_opt; ty_args = typ_list} in
-      print_endline ("size of type list "^string_of_int (List.length typ_list) );
-      begin match typ_list with
-      | h::t-> (print_endline ("the first type is "^(string_of_ty h)))
-      | [] -> ()
-      end;
-      let (op, call_code) = call_of (pack fn) full_args in
-      (op, arg_code >@ stream >@ call_code)
+
+      let (op1, call_code) = call_of (typ_list, typ_opt, (snd fnop)) full_args in
+      (op1, arg_code >@ stream >@ call_code)
 	with Invalid_argument("List.fold_right2") -> failwith "problem in cmp_call pathmethod" in x
 
 (* Compile an Oat path:
@@ -531,6 +535,7 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
 	let _fields = _c_signature.fields in
 	let _methods = _c_signature.methods in
        let op1 = this_op c in
+        (* print_endline("In cmp_path, op1 is "^ (string_of_operand op1)); *)
        (op1,[],(lookup_this c),(snd id),_fields,_methods,_c_signature)
 
 
@@ -559,13 +564,12 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
       let id_type_option = get_this_field_info fields start id_string in
       begin match id_type_option with
       	| Some (s1,idx) ->
-	  let (uid2,op2) = gen_local_op s1 id_string in
+	  let (uid2,op2) = gen_local_op (Ptr(s1)) id_string in
 	   
 	   (* print_string("\nThe type of the uid is: "^(string_of_ty s1)^"\n"); *)
-      	   (* (op1,op2,[I(Gep(uid2,op1,[(i32_op_of_int 0);(i32_op_of_int idx)]))]) *)
-	  
-	   print_endline "\n\nsecond checkpoint\n";
-	  (first_op,op2,[I(Gep(uid2,first_op,[(i32_op_of_int 0);(i32_op_of_int idx)]))])
+	  	   
+	  let insns = [I(Gep(uid2,first_op,[(i32_op_of_int 0);(i32_op_of_int idx)]))]@insns1 in
+	  (first_op,op2,insns)
 	     
       	| None -> let fn_type_option = get_this_fn_info methods 1 id_string in
       		  begin match fn_type_option with
@@ -577,13 +581,14 @@ and cmp_path (c:ctxt) (p:Range.t Ast.path) : operand * operand * stream =
 				       begin match s2.ty_args with
 				       |h::t -> print_endline("In cmp_path, the first type arg is "^ (string_of_ty h))
 				       end;
+
       		  		       let (uid2,op2) = gen_local_op fptr id_string in
       		  		       let ptr = Ptr(Fptr (s2.ty_args,s2.rty)) in
       		  		       let ptr_op = gen_local_op ptr id_string in
-				       let insns = [I(Gep((fst ptr_op),vtable,[i32_op_of_int 0;i32_op_of_int idx]));
-					 I(Load(uid2,(snd ptr_op)))] in
-      		  		      
-					(* (op1,op2,insns) *)
+
+				        let insns = [I(Load(uid2,(snd ptr_op)));
+						     I(Gep((fst ptr_op),vtable,[i32_op_of_int 0;i32_op_of_int idx]))]@insns1 in
+
 				        (first_op,op2,insns)
       		    | None -> failwith "Impossible case."
       		  end
@@ -722,18 +727,45 @@ and cmp_block (c:ctxt) ((vdecls, stmts):Range.t Ast.block) : (ctxt * stream) =
 (* Turns code for a function into a fdecl and adds it to the context
  * Along the way, it hoists global string values into the context too. *)
 
+let rec print_stream(insns: elt list):unit =
+  begin match insns with
+  | h::t -> begin match h with
+              | I (Binop (u, bop,operand ,operand1)) -> print_endline "binop"; print_stream t
+
+	      | I(Alloca (u, ty)) -> print_endline "alloca"; print_stream t
+
+	      |I( Load ( u, operand))-> print_endline "load"; print_stream t
+        
+	      | I(Store(operand, operand1)) -> print_endline "store"; print_stream t
+	      | I(Icmp (u, cmpop, operand, operand1))-> print_endline "compare"; print_stream t
+	      | I(Call(u, operand, operandlist))-> print_endline "call"; print_stream t
+	      | I(Bitcast(u, operand , ty ))->print_endline "bitcast"; print_stream t
+	      |I( Gep(u, operand, (operandlist)))-> print_endline "gep"; print_stream t
+	      |T(Ret o) -> print_endline "return"; print_stream t
+  end 
+  | [] -> ()
+  end 
+
+
 let build_fdecl (c:ctxt) (f:fn) (args:operand list) (code:stream) : ctxt =
+  (* print_stream code; *)
+  print_string("\nThe big list's in fdecl size is: ");
+  print_int(List.length(code));
+  print_string("\n");
   let blocks_of_stream (c:ctxt) (elts:stream) : ctxt * bblock list =
+    (* print_endline "PRINTING STREAM"; *)
+    (* print_stream(elts); *)
     let fresh_or o = match o with Some l -> l | None -> mk_lbl_hint "fresh" in
     let (c, _l, _is, bs) =
-      List.fold_right (fun e (c, l, is, bs) ->
+      List.fold_right (fun e (c, l, is,  bs) ->
         match e with
           | L l' -> (c, Some l', [], 
 			         {label=fresh_or l;
 			          insns=List.rev is;
 			          terminator=Ll.Br l'}::bs)
-          | I i  -> (c, l, i::is, bs)
-          | T t  -> (c, None, [], 
+          | I i  ->  (c, l, i::is, bs)
+          | T t  -> 
+		      (c, None, [], 
 			         {label=fresh_or l;
 			          insns=List.rev is;
 			          terminator=t}::bs)
@@ -744,6 +776,12 @@ let build_fdecl (c:ctxt) (f:fn) (args:operand list) (code:stream) : ctxt =
   in
     
   let (c, cfg) = blocks_of_stream c code in
+
+  (* begin match cfg with *)
+  (* |h::t ->  print_endline("CFG has "^(string_of_int(List.length h.insns))^"instructions") *)
+  (* |[]->() *)
+  (* end; *)
+ 
   let fdecl = {
     ll_name = f.name;
     ll_type = f.rty;
@@ -751,6 +789,12 @@ let build_fdecl (c:ctxt) (f:fn) (args:operand list) (code:stream) : ctxt =
     ll_cfg = cfg;
   } 
   in
+  print_string("\nThe fdecl's size is: ");
+  print_int(List.length(cfg));
+  print_string("\n");
+
+print_string("\nThe fdecl's name is: "^(string_of_gid f.name)^"\n");
+
   add_fdecl c fdecl
 
 (* Compile the arguments to a function, mapping them to alloca'd storage space. *)
@@ -840,9 +884,9 @@ let rec cmp_cinits (c:ctxt) (is:Range.t Ast.cinits) : stream =
 	| _ -> failwith "o2 should have been a pointer"
       end in
       let (oinit,initstream) = cmp_init c o2_type init in
-      let store_insn = [I(Store(o2,oinit))] in
+       let store_insn = [I(Store(oinit,o2))] in
       let recurse_stream = cmp_cinits c t in
-      pathstream@initstream@store_insn@recurse_stream
+      pathstream>@initstream>@store_insn>@recurse_stream
     |[]->[]
   end 
     
@@ -870,7 +914,7 @@ let rec work_es_list (c:ctxt) (es) : (operand list) * (stream) =
     |h::t-> let (op,str1) = try cmp_exp c h  with Not_found -> failwith "problem in line 821" in
 	    let typ1 = fst op in
 	    let (olist,str2) = work_es_list c t in
-	    (op::olist,str1@str2)
+	    (olist@[op],str2@str1)
     |[] -> ([],[])
   end
 
@@ -879,65 +923,72 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let thisop = this_op c in
   let op_list = thisop::op_list_old in
   let c3 = add_local c2 cid thisop in
-let csig =
-try
-   lookup_csig c3 cid 
-with Not_found -> failwith "problem on line 836"
-in
 
+  let csig = lookup_csig c3 cid in
   let ctor_fn = csig.ctor in
   let super_cid_opt = csig.ext in
-  let expression = Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange,cid)))) in
-  let ty_list =
+
+  let this_obj = Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange, cid)))) in
+  let super_ctor_args =
     begin match super_cid_opt with
       | Some super_cid -> print_string("\n\nThe class is "^cid);
-	print_string("\nThe super_id is: "^super_cid);
-	let super_csig = try lookup_csig c3 super_cid with Not_found-> failwith "problem on line 846" in
-			  let super_ctor_fn = super_csig.ctor in
-			  begin match super_ctor_fn.ty_args with
-			    |h::t -> t
-			    |[]->[]
-			   end
+	                  print_string("\nThe super_id is: "^super_cid);
+			  let super_csig = try 
+					   lookup_csig c3 super_cid 
+			                   with Not_found-> failwith "superclass definition not found" in
+			  let super_ctor_fn = super_csig.ctor in 
+			   super_ctor_fn.ty_args
+
+			 
       | None -> []
     end in
-  let (super_op_list,super_op_stream) = work_es_list c3 es in
-    (* if (cid="Object") then work_es_list c3 es *)
-    (* else work_es_list c3 (expression::es) in *)
+  let (super_op_list,super_op_stream) = (* work_es_list c3 es in *)
+    if (cid = "Object") then work_es_list c3 es
+      else work_es_list c3 (this_obj::es) in
 
-  if (List.length(es)<>List.length(ty_list)) then print_endline "THE LISTS ARE NOT THE SAME SIZE";
-  print_string("\nSIZE OF ES: ");
-  print_int((List.length((es))));
-  print_string("\nSIZE OF TY_LIST: ");
-  print_int((List.length(ty_list)));
-   begin match ty_list with
-     |h::t->
-       print_string("\nThe type is: "); print_string(string_of_ty h); print_string("\n")
-     |[]->()
-   end;
+  (* if (List.length(es)<>List.length(super_ctor_args)) then print_endline "THE LISTS ARE NOT THE SAME SIZE"; *)
+  (* print_string("\nSIZE OF ES: "); *)
+  (* print_int((List.length((es)))); *)
+  (* print_string("\nSIZE OF TY_LIST: "); *)
+  (* print_int((List.length(super_ctor_args))); *)
+  (*  begin match super_ctor_args with *)
+  (*    |h::t-> *)
+  (*      print_string("\nThe type is: "); print_string(string_of_ty h); print_string("\n") *)
+  (*    |[]->() *)
+  (*  end; *)
 
-  let (super_list,super_stream) = cast_ops super_op_list ty_list in
-  let _name_id = (Range.norange,"_name") in
-  let _name_iexp = Ast.Iexp(expression) in
-  print_string("\n\n\nThe cid is: "^cid^"\n");
-  let new_is = (_name_id,_name_iexp)::is in
-  let cinits_code = cmp_cinits c3 new_is in
+  let (super_list,super_stream) = cast_ops super_op_list super_ctor_args in
+
   let call_insns = 
-    begin match csig.ext with
-      | Some super_class -> let csig_super = try lookup_csig c3 super_class with Not_found -> failwith "problem on line 877 " in
+    begin match super_cid_opt with
+      | Some super_class -> let csig_super = try lookup_csig c3 super_class with Not_found -> failwith "failed to look up super class" in
 			    let super_ctor_fn = csig_super.ctor in
-			    let fn_gid = super_ctor_fn.name in
-			    let typ = Fptr (super_ctor_fn.ty_args,super_ctor_fn.rty) in
-			    let fn_operand:operand = (typ, (Gid fn_gid)) in
-			    [I(Call(None,fn_operand,super_list))]
+			     let this, mem_code = oat_alloc_object c super_class in
+			     let res_id, res_op = gen_local_op (Ptr (Namedt super_class)) "new_obj" in
+			     (* (res_op, arg_code >@  *)
+			        mem_code >::
+			       I (Call (Some res_id, op_of_fn super_ctor_fn, this::super_list))
       | None->[]
     end in
+
+  let _name_id = (Range.norange,"_name") in
+  let _name_iexp = Ast.Iexp(this_obj) in
+  let new_is = (_name_id,_name_iexp)::is in
+  let cinits_code = cmp_cinits c3 new_is in
+  let thisop_id_opt = begin match thisop with
+    | (Ptr t, Id i) -> Some i
+    | _ -> None
+  end in
+
   let vtable_ptr = csig.vtable in
   let (this_vtable_id,this_vtable_operand) = gen_local_op (fst vtable_ptr) "this_vtable" in
-  let set_vtable_insns = [I(Gep(this_vtable_id,thisop,
-          [i32_op_of_int 0;i32_op_of_int 0]));I(Store(this_vtable_operand,thisop))] in
+  let set_vtable_insns = [I(Store(thisop,this_vtable_operand));
+			  I(Gep(this_vtable_id,thisop,
+			 [i32_op_of_int 0;i32_op_of_int 0]))] in
   let ret_cmd = [T(Ret(Some thisop))] in
-  let code = insns@super_op_stream@super_stream@cinits_code
-    @call_insns@set_vtable_insns@ret_cmd in
+  
+ let code = ret_cmd@set_vtable_insns@cinits_code@call_insns@super_stream@super_op_stream@insns in
+
   build_fdecl c3 ctor_fn op_list code
 
 (* Compile a class definition *)
@@ -1067,10 +1118,11 @@ let cmp_toplevel (p: Range.t Ast.prog) : Ll.prog =
   let c = cmp_fctxt toplevel_ctxt p in
   let c = cmp_prog c p in
   let c = global_initializer c (get_globals c) in
-  {
+  let p = {
     Ll.namedts    = get_namedts c;
     Ll.prototypes = internal_fns @ (get_efdecls c);
     Ll.globals    = get_globals c;
     Ll.functions  = get_fdecls c;
-  }
+  } in
+ Lllib.write_prog_to_file "output" p; p
 

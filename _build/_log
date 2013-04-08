@@ -132,7 +132,7 @@
 # Target: occ.ml.depends, tags: { extension:ml, file:occ.ml, ocaml, ocamldep, quiet }
 /usr/local/bin/ocamldep.opt -modules occ.ml > occ.ml.depends # cached
 # Target: phase1.ml.depends, tags: { extension:ml, file:phase1.ml, ocaml, ocamldep, quiet }
-/usr/local/bin/ocamldep.opt -modules phase1.ml > phase1.ml.depends
+/usr/local/bin/ocamldep.opt -modules phase1.ml > phase1.ml.depends # cached
 # Target: ctxt.ml.depends, tags: { extension:ml, file:ctxt.ml, ocaml, ocamldep, quiet }
 /usr/local/bin/ocamldep.opt -modules ctxt.ml > ctxt.ml.depends # cached
 # Target: ctxt.mli.depends, tags: { extension:mli, file:ctxt.mli, ocaml, ocamldep, quiet }
@@ -153,6 +153,8 @@
 /usr/local/bin/ocamlopt.opt -c -o tctxt.cmx tctxt.ml # cached
 # Target: tc.cmx, tags: { compile, extension:cmx, extension:ml, file:tc.cmx, file:tc.ml, implem, native, ocaml, quiet }
 /usr/local/bin/ocamlopt.opt -c -o tc.cmx tc.ml # cached
+# Target: phase1.cmx, tags: { compile, extension:cmx, extension:ml, file:phase1.cmx, file:phase1.ml, implem, native, ocaml, quiet }
+/usr/local/bin/ocamlopt.opt -c -o phase1.cmx phase1.ml # cached
 # Target: phase2.ml.depends, tags: { extension:ml, file:phase2.ml, ocaml, ocamldep, quiet }
 /usr/local/bin/ocamldep.opt -modules phase2.ml > phase2.ml.depends # cached
 # Target: phase2.mli.depends, tags: { extension:mli, file:phase2.mli, ocaml, ocamldep, quiet }
@@ -161,33 +163,20 @@
 /usr/local/bin/ocamlc.opt -c -o phase2.cmi phase2.mli # cached
 # Target: phase2.cmx, tags: { compile, extension:cmx, extension:ml, file:phase2.cmx, file:phase2.ml, implem, native, ocaml, quiet }
 /usr/local/bin/ocamlopt.opt -c -o phase2.cmx phase2.ml # cached
-# Target: phase1.cmx, tags: { compile, extension:cmx, extension:ml, file:phase1.cmx, file:phase1.ml, implem, native, ocaml, quiet }
-/usr/local/bin/ocamlopt.opt -c -o phase1.cmx phase1.ml
-+ /usr/local/bin/ocamlopt.opt -c -o phase1.cmx phase1.ml
-File "phase1.ml", line 550, characters 11-20:
-Warning 26: unused variable vtable_op.
-File "phase1.ml", line 871, characters 9-13:
-Warning 26: unused variable typ1.
-File "phase1.ml", line 577, characters 11-144:
-Warning 8: this pattern-matching is not exhaustive.
-Here is an example of a value that is not matched:
-[]
 # Target: occ.cmx, tags: { compile, extension:cmx, extension:ml, file:occ.cmx, file:occ.ml, implem, native, ocaml, quiet }
-/usr/local/bin/ocamlopt.opt -c -o occ.cmx occ.ml
+/usr/local/bin/ocamlopt.opt -c -o occ.cmx occ.ml # cached
+# Target: gradedtests.cmx, tags: { compile, extension:cmx, extension:ml, file:gradedtests.cmx, file:gradedtests.ml, implem, native, ocaml, quiet }
+/usr/local/bin/ocamlopt.opt -c -o gradedtests.cmx gradedtests.ml # cached
 # Target: Oconfig.ml.depends, tags: { extension:ml, file:Oconfig.ml, ocaml, ocamldep, quiet }
 /usr/local/bin/ocamldep.opt -modules Oconfig.ml > Oconfig.ml.depends # cached
 # Target: Oconfig.cmx, tags: { compile, extension:cmx, extension:ml, file:Oconfig.cmx, file:Oconfig.ml, implem, native, ocaml, quiet }
 /usr/local/bin/ocamlopt.opt -c -o Oconfig.cmx Oconfig.ml # cached
 # Target: providedtests.cmx, tags: { compile, extension:cmx, extension:ml, file:providedtests.cmx, file:providedtests.ml, implem, native, ocaml, quiet }
 /usr/local/bin/ocamlopt.opt -c -o providedtests.cmx providedtests.ml # cached
-# Target: gradedtests.cmx, tags: { compile, extension:cmx, extension:ml, file:gradedtests.cmx, file:gradedtests.ml, implem, native, ocaml, quiet }
-/usr/local/bin/ocamlopt.opt -c -o gradedtests.cmx gradedtests.ml
 # Target: driver.cmx, tags: { compile, extension:cmx, extension:ml, file:driver.cmx, file:driver.ml, implem, native, ocaml, quiet }
-/usr/local/bin/ocamlopt.opt -c -o driver.cmx driver.ml
+/usr/local/bin/ocamlopt.opt -c -o driver.cmx driver.ml # cached
 # Target: main.cmx, tags: { compile, extension:cmx, extension:ml, file:main.cmx, file:main.ml, implem, native, ocaml, quiet }
-/usr/local/bin/ocamlopt.opt -c -o main.cmx main.ml
+/usr/local/bin/ocamlopt.opt -c -o main.cmx main.ml # cached
 # Target: main.native, tags: { dont_link_with, extension:native, file:main.native, link, native, ocaml, program, quiet }
-/usr/local/bin/ocamlopt.opt unix.cmxa str.cmxa LibUtil.cmx Oconfig.cmx assert.cmx ast.cmx range.cmx parser.cmx lexer.cmx astlib.cmx x86.cmx ll.cmx ctxt.cmx cunit.cmx platform.cmx lllib.cmx tctxt.cmx tc.cmx phase1.cmx phase2.cmx occ.cmx gradedtests.cmx providedtests.cmx driver.cmx main.cmx -o main.native
-+ /usr/local/bin/ocamlopt.opt unix.cmxa str.cmxa LibUtil.cmx Oconfig.cmx assert.cmx ast.cmx range.cmx parser.cmx lexer.cmx astlib.cmx x86.cmx ll.cmx ctxt.cmx cunit.cmx platform.cmx lllib.cmx tctxt.cmx tc.cmx phase1.cmx phase2.cmx occ.cmx gradedtests.cmx providedtests.cmx driver.cmx main.cmx -o main.native
-ld: warning: PIE disabled. Absolute addressing (perhaps -mdynamic-no-pic) not allowed in code signed PIE, but used in _caml_program from /var/folders/jq/1fp_zj1d2mgddhsvh1ln3ffh0000gn/T/camlstartupb25b32.o. To fix this warning, don't compile with -mdynamic-no-pic or link with -Wl,-no_pie
+/usr/local/bin/ocamlopt.opt unix.cmxa str.cmxa LibUtil.cmx Oconfig.cmx assert.cmx ast.cmx range.cmx parser.cmx lexer.cmx astlib.cmx x86.cmx ll.cmx ctxt.cmx cunit.cmx platform.cmx lllib.cmx tctxt.cmx tc.cmx phase1.cmx phase2.cmx occ.cmx gradedtests.cmx providedtests.cmx driver.cmx main.cmx -o main.native # cached
 # Compilation successful.

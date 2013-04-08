@@ -1,0 +1,32 @@
+# 1 "tests/run3.oat"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "tests/run3.oat"
+
+# 20 "tests/run3.oat"
+
+
+# 36 "tests/run3.oat"
+
+class C 
+{
+int k;
+  new () () {
+    this.k = 2;
+  }
+};
+
+class B <: C {
+  int j;
+  int hello;
+  new () () {
+    this.j = 2;
+    this.hello = 7;
+  }
+};
+
+
+int program (int argc, string[] argv) {
+  B b = new B();
+  return 0;
+}
