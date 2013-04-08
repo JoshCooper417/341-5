@@ -1,0 +1,1 @@
+Assertion failed: (NULL != arr), function string_of_array, file runtime.c, line 67.

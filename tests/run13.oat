@@ -9,6 +9,7 @@ class B<:A {
 
 int program (int argc, string[] argv) {
   B b = new B ();
+  bool a = false;
   int i = 0;
   if (b.b) i = 1; else i = 0;
   return i;

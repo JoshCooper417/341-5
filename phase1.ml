@@ -713,8 +713,41 @@ and cmp_stmt (c:ctxt) (stmt : Range.t Ast.stmt) : stream =
       print_code >::
         I (Call (None, op_of_fn oat_abort_fn, [i32_op_of_int (-1)]))
 
-    | Ast.Cast (cid, (_, id), e, st, sto)  -> failwith "phase1.ml: cast not yet implemented"
-
+    | Ast.Cast (cid, (_, id), e, st, sto)  ->
+      let op = gen_local_op (Namedt(cid)) "cast" in
+      let c2 = add_local c id (snd op) in
+      let stmt_stream = cmp_stmt c2 st in
+      let stmt_opt_stream = begin match sto with
+	                      |Some s-> cmp_stmt c s
+			      |None -> []
+                            end in
+      let obj_opt = lookup_local id c in
+					      
+					      let right_vtable_id, right_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "rvtable" in
+					      let left_vtable_id, left_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "lvtable" in
+					      let left_csig = lookup_csig c cid in
+					      let (left_vtable_operand) = left_csig.vtable in
+  let lbl_bound_check = mk_lbl_hint "bound_check"in
+  let lbl_move_up = mk_lbl_hint "move_up" in
+  let lbl_check_curr = mk_lbl_hint "check_curr" in
+  let lbl_end_no = mk_lbl_hint "end_no" in
+  let lbl_end_yes = mk_lbl_hint "end_yes" in
+  let (cmp_id,cmp_operand) = gen_local_op I1 "compare" in
+  let (rvtable_id,rvtable_operand) = gen_local_op (Ptr I8) "rvtable" in
+  let (leftvtable_cast_op, cast_leftvtable_op_insn) = (cast_op (left_vtable_operand, []) (Ptr(Ptr I8))) in
+  let (rightvtable_cast_op, cast_rightvtable_op_insn) = (cast_op (right_vtable_ptr, []) (Ptr(Ptr I8))) in
+  let load_insn = [I(Load(rvtable_id,rightvtable_cast_op))] in
+  let left_load_insn = [I(Load(left_vtable_id,leftvtable_cast_op))] in
+  let cmp_bound_insn = [I(Icmp(cmp_id, Eq, rvtable_operand, (Ptr(I8), Null)))] in
+  let cbr_insn1 = [T(Cbr(cmp_operand,lbl_end_no,lbl_check_curr))] in
+  let cmp_insn = [I(Icmp(cmp_id,Eq,left_vtable_ptr,rvtable_operand))] in
+  let cbr_insn2 = [T(Cbr(cmp_operand,lbl_end_yes,lbl_move_up))] in
+  let move_up_insn = [I(Gep(right_vtable_id, rvtable_operand, [i32_op_of_int 0]))] in
+  let loop = [T(Br(lbl_bound_check))]>@[L(lbl_bound_check)]>@cast_leftvtable_op_insn>@load_insn>@cast_rightvtable_op_insn>@cmp_bound_insn>@cbr_insn1>@
+    [L(lbl_check_curr)]>@cmp_insn>@cbr_insn2>@
+             [L(lbl_move_up)]>@move_up_insn>@[T(Br(lbl_bound_check))]>@
+	     [L(lbl_end_yes)]>@stmt_stream
+    >@[L(lbl_end_no)]>@stmt_opt_stream in loop
 
 and cmp_stmts (c:ctxt) (stmts:Range.t Ast.stmts) : stream =
   List.fold_left (fun code s -> code >@ (cmp_stmt c s)) [] stmts
@@ -929,9 +962,8 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   let ctor_fn = csig.ctor in
   let super_cid_opt = csig.ext in
 
-  let new_id, new_op = gen_local_op (Ptr(Namedt cid)) "new_op" in
-
-  let this_obj = Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange, cid)))) in
+  (* let this_obj = Ast.LhsOrCall(Ast.Lhs(Ast.Var((Range.norange, cid)))) in *)
+  let this_obj = Ast.Const(Ast.Cstring(Range.norange, cid)) in
   let super_ctor_args =
     begin match super_cid_opt with
       | Some super_cid -> print_string("\n\nThe class is "^cid);
@@ -944,9 +976,12 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
 			 
       | None -> []
     end in
-  let (super_op_list,super_op_stream) = (* work_es_list c3 es in *)
-    if (cid = "Object") then work_es_list c3 es
-      else work_es_list c3 (this_obj::es) in
+  let (super_op_list_pre,super_op_stream) = work_es_list c3 es in
+    (* if (cid = "Object") then work_es_list c3 es *)
+    (*   else work_es_list c3 (this_obj::es) in *)
+  let super_op_list = 
+     if (cid = "Object") then super_op_list_pre
+     else thisop::super_op_list_pre in
 
   let (super_list,super_stream) = cast_ops super_op_list super_ctor_args in
   let thisop_id_opt =
@@ -954,6 +989,14 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
   |(Ptr t, Id i ) -> Some i
   | _ -> None
   end in
+
+  let thisop_id 
+ =
+  begin match thisop with
+  |(Ptr t, Id i ) -> i
+  | _ -> failwith "should have an id"
+  end in
+
   let call_insns = 
     begin match super_cid_opt with
       | Some super_class -> let csig_super = try lookup_csig c3 super_class with Not_found -> failwith "failed to look up super class" in
@@ -961,8 +1004,8 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
 			     let this, mem_code = oat_alloc_object c cid in
 			     let res_id, res_op = gen_local_op (Ptr (Namedt super_class)) "new_obj" in
 			     (* (res_op, arg_code >@  *)
-			        mem_code >::
-			       I (Call (Some res_id, op_of_fn super_ctor_fn, this::super_list))
+			        mem_code >@
+			       [ I(Bitcast(thisop_id,res_op, Namedt(cid))); I (Call (Some res_id, op_of_fn super_ctor_fn, this::super_list))]
       | None-> []
     end in
 
@@ -974,7 +1017,7 @@ let cmp_ctor (c:ctxt) cid _ ((ar, es, is, b):Range.t Ast.ctor) : ctxt =
 
   let vtable_ptr = csig.vtable in
   let (this_vtable_id,this_vtable_operand) = gen_local_op (fst vtable_ptr) "this_vtable" in
-  let set_vtable_insns = [I(Store(thisop, this_vtable_operand));
+  let set_vtable_insns = [I(Store((* thisop *)vtable_ptr, this_vtable_operand));
 			  I(Gep(this_vtable_id,thisop,
 			 [i32_op_of_int 0;i32_op_of_int 0]))] in
   let ret_cmd = [T(Ret(Some thisop))] in

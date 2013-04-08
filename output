@@ -1,7 +1,7 @@
-%B = type { %_B_vtable*, i8*, i32, i32 }
-%_B_vtable = type { %_A_vtable*, i8* (%Object*)*, void (%A*)*, void (%A*)*, void (%B*)*, i32 (%B*, i32)* }
-%A = type { %_A_vtable*, i8*, i32 }
-%_A_vtable = type { %_Object_vtable*, i8* (%Object*)*, void (%A*)*, void (%A*)*, void (%A*)* }
+%Array = type { %_Array_vtable*, i8*, i32, %ArrayItem* }
+%_Array_vtable = type { %_Object_vtable*, i8* (%Object*)*, i32 (%Array*, i32)*, void (%Array*, i32, i32)*, void (%Array*, i32)*, i32 (%Array*)* }
+%ArrayItem = type { %_ArrayItem_vtable*, i8*, i32, %ArrayItem* }
+%_ArrayItem_vtable = type { %_Object_vtable*, i8* (%Object*)*, void (%ArrayItem*, i32)* }
 %Object = type { %_Object_vtable*, i8* }
 %_Object_vtable = type { {  }*, i8* (%Object*)* }
 declare i32* @oat_malloc(i32)
@@ -16,205 +16,596 @@ declare i8* @string_cat(i8*, i8*)
 declare i8* @string_of_int(i32)
 declare { i32, [ 0 x i32 ] }* @array_of_string(i8*)
 declare i8* @string_of_array({ i32, [ 0 x i32 ] }*)
-@_const_str14.str. = private unnamed_addr constant [ 2 x i8 ] c "
-\00", align 4
-@_const_str14 = alias bitcast([ 2 x i8 ]* @_const_str14.str. to i8*)@_const_str13.str. = private unnamed_addr constant [ 2 x i8 ] c "
-\00", align 4
-@_const_str13 = alias bitcast([ 2 x i8 ]* @_const_str13.str. to i8*)@_const_str12.str. = private unnamed_addr constant [ 6 x i8 ] c "b.i: \00", align 4
-@_const_str12 = alias bitcast([ 6 x i8 ]* @_const_str12.str. to i8*)@_const_str11.str. = private unnamed_addr constant [ 2 x i8 ] c "
-\00", align 4
-@_const_str11 = alias bitcast([ 2 x i8 ]* @_const_str11.str. to i8*)@_const_str10.str. = private unnamed_addr constant [ 6 x i8 ] c "b.j: \00", align 4
-@_const_str10 = alias bitcast([ 6 x i8 ]* @_const_str10.str. to i8*)@_const_str9.str. = private unnamed_addr constant [ 2 x i8 ] c "
-\00", align 4
-@_const_str9 = alias bitcast([ 2 x i8 ]* @_const_str9.str. to i8*)@_const_str8.str. = private unnamed_addr constant [ 2 x i8 ] c "
-\00", align 4
-@_const_str8 = alias bitcast([ 2 x i8 ]* @_const_str8.str. to i8*)@_const_str7.str. = private unnamed_addr constant [ 6 x i8 ] c "b.i: \00", align 4
-@_const_str7 = alias bitcast([ 6 x i8 ]* @_const_str7.str. to i8*)@_const_str6.str. = private unnamed_addr constant [ 2 x i8 ] c "
-\00", align 4
-@_const_str6 = alias bitcast([ 2 x i8 ]* @_const_str6.str. to i8*)@_const_str5.str. = private unnamed_addr constant [ 6 x i8 ] c "b.j: \00", align 4
-@_const_str5 = alias bitcast([ 6 x i8 ]* @_const_str5.str. to i8*)@_const_str4.str. = private unnamed_addr constant [ 13 x i8 ] c "HELLOOOOOOOO\00", align 4
-@_const_str4 = alias bitcast([ 13 x i8 ]* @_const_str4.str. to i8*)@_B_vtable3 = private constant %_B_vtable {%_A_vtable* @_A_vtable2, i8* (%Object*)* @_Object_get_name, void (%A*)* @_A_x, void (%A*)* @_A_g, void (%B*)* @_B_f, i32 (%B*, i32)* @_B_h}, align 4
-@_A_vtable2 = private constant %_A_vtable {%_Object_vtable* @_Object_vtable1, i8* (%Object*)* @_Object_get_name, void (%A*)* @_A_x, void (%A*)* @_A_g, void (%A*)* @_A_f}, align 4
-@_Object_vtable1 = private constant %_Object_vtable {{  }* null, i8* (%Object*)* @_Object_get_name}, align 4
+@_const_str628.str. = private unnamed_addr constant [ 24 x i8 ] c "get error: out of range\00", align 4
+@_const_str628 = alias bitcast([ 24 x i8 ]* @_const_str628.str. to i8*)@_const_str627.str. = private unnamed_addr constant [ 24 x i8 ] c "get error: out of range\00", align 4
+@_const_str627 = alias bitcast([ 24 x i8 ]* @_const_str627.str. to i8*)@_const_str626.str. = private unnamed_addr constant [ 6 x i8 ] c "Array\00", align 4
+@_const_str626 = alias bitcast([ 6 x i8 ]* @_const_str626.str. to i8*)@_const_str625.str. = private unnamed_addr constant [ 10 x i8 ] c "ArrayItem\00", align 4
+@_const_str625 = alias bitcast([ 10 x i8 ]* @_const_str625.str. to i8*)@_const_str624.str. = private unnamed_addr constant [ 7 x i8 ] c "Object\00", align 4
+@_const_str624 = alias bitcast([ 7 x i8 ]* @_const_str624.str. to i8*)@_Array_vtable623 = private constant %_Array_vtable {%_Object_vtable* @_Object_vtable621, i8* (%Object*)* @_Object_get_name, i32 (%Array*, i32)* @_Array_getElement, void (%Array*, i32, i32)* @_Array_setElement, void (%Array*, i32)* @_Array_addElement, i32 (%Array*)* @_Array_getLength}, align 4
+@_ArrayItem_vtable622 = private constant %_ArrayItem_vtable {%_Object_vtable* @_Object_vtable621, i8* (%Object*)* @_Object_get_name, void (%ArrayItem*, i32)* @_ArrayItem_set}, align 4
+@_Object_vtable621 = private constant %_Object_vtable {{  }* null, i8* (%Object*)* @_Object_get_name}, align 4
 define void @oat_init (){
-__fresh10:
+__fresh935:
   ret void
 }
 
 
-define i32 @program (i32 %argc64, { i32, [ 0 x i8* ] }* %argv62){
-__fresh9:
-  %argc_slot65 = alloca i32
-  store i32 %argc64, i32* %argc_slot65
-  %argv_slot63 = alloca { i32, [ 0 x i8* ] }*
-  store { i32, [ 0 x i8* ] }* %argv62, { i32, [ 0 x i8* ] }** %argv_slot63
-  %mem_ptr66 = call i32* @oat_malloc ( i32 16 )
-  %obj67 = bitcast i32* %mem_ptr66 to %B* 
-  %new_obj68 = call %B* @_B_ctor ( %B* %obj67 )
-  %vdecl_slot69 = alloca %B*
-  store %B* %new_obj68, %B** %vdecl_slot69
-  %vdecl_slot70 = alloca i32
-  store i32 0, i32* %vdecl_slot70
-  call void @print_string( i8* @_const_str5 )
-  %lhs_or_call71 = load %B** %vdecl_slot69
-  %j72 = getelementptr %B* %lhs_or_call71, i32 0, i32 3
-  %lhs_or_call73 = load i32* %j72
-  call void @print_int( i32 %lhs_or_call73 )
-  call void @print_string( i8* @_const_str6 )
-  call void @print_string( i8* @_const_str7 )
-  call void @print_string( i8* @_const_str8 )
-  %lhs_or_call74 = load %B** %vdecl_slot69
-  %i75 = getelementptr %B* %lhs_or_call74, i32 0, i32 2
-  %lhs_or_call76 = load i32* %i75
-  call void @print_int( i32 %lhs_or_call76 )
-  call void @print_string( i8* @_const_str9 )
-  %lhs_or_call77 = load %B** %vdecl_slot69
-  %h79 = getelementptr %_B_vtable* @_B_vtable3, i32 0, i32 5
-  %h78 = load i32 (%B*, i32)** %h79
-  %cast_op80 = bitcast %B %lhs_or_call77 to %B* 
-  %ret81 = call i32 %h78 ( %B* %cast_op80, i32 3 )
-  store i32 %ret81, i32* %vdecl_slot70
-  call void @print_string( i8* @_const_str10 )
-  %lhs_or_call82 = load %B** %vdecl_slot69
-  %j83 = getelementptr %B* %lhs_or_call82, i32 0, i32 3
-  %lhs_or_call84 = load i32* %j83
-  call void @print_int( i32 %lhs_or_call84 )
-  call void @print_string( i8* @_const_str11 )
-  call void @print_string( i8* @_const_str12 )
-  call void @print_string( i8* @_const_str13 )
-  %lhs_or_call85 = load %B** %vdecl_slot69
-  %i86 = getelementptr %B* %lhs_or_call85, i32 0, i32 2
-  %lhs_or_call87 = load i32* %i86
-  call void @print_int( i32 %lhs_or_call87 )
-  call void @print_string( i8* @_const_str14 )
-  %lhs_or_call88 = load i32* %vdecl_slot70
-  ret i32 %lhs_or_call88
+define i32 @program (i32 %argc3656, { i32, [ 0 x i8* ] }* %argv3654){
+__fresh922:
+  %argc_slot3657 = alloca i32
+  store i32 %argc3656, i32* %argc_slot3657
+  %argv_slot3655 = alloca { i32, [ 0 x i8* ] }*
+  store { i32, [ 0 x i8* ] }* %argv3654, { i32, [ 0 x i8* ] }** %argv_slot3655
+  %mem_ptr3658 = call i32* @oat_malloc ( i32 16 )
+  %obj3659 = bitcast i32* %mem_ptr3658 to %Array* 
+  %new_obj3660 = call %Array* @_Array_ctor ( %Array* %obj3659 )
+  %vdecl_slot3661 = alloca %Array*
+  store %Array* %new_obj3660, %Array** %vdecl_slot3661
+  %vdecl_slot3662 = alloca i32
+  store i32 0, i32* %vdecl_slot3662
+  %vdecl_slot3663 = alloca i32
+  store i32 0, i32* %vdecl_slot3663
+  %lhs_or_call3664 = load %Array** %vdecl_slot3661
+  %addElement3666 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 4
+  %addElement3665 = load void (%Array*, i32)** %addElement3666
+  %cast_op3667 = bitcast %Array %lhs_or_call3664 to %Array* 
+  call void %addElement3665( %Array* %cast_op3667, i32 79 )
+  %lhs_or_call3668 = load %Array** %vdecl_slot3661
+  %getLength3670 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 5
+  %getLength3669 = load i32 (%Array*)** %getLength3670
+  %cast_op3671 = bitcast %Array %lhs_or_call3668 to %Array* 
+  %ret3672 = call i32 %getLength3669 ( %Array* %cast_op3671 )
+  store i32 %ret3672, i32* %vdecl_slot3662
+  %vdecl_slot3673 = alloca i32
+  store i32 1, i32* %vdecl_slot3673
+  br label %__cond906
+
+__cond906:
+  %lhs_or_call3674 = load i32* %vdecl_slot3673
+  %lhs_or_call3675 = load i32* %vdecl_slot3662
+  %bop3676 = icmp slt i32 %lhs_or_call3674, %lhs_or_call3675
+  br i1 %bop3676, label %__body905, label %__post904
+
+__fresh923:
+  br label %__body905
+
+__body905:
+  %lhs_or_call3677 = load i32* %vdecl_slot3673
+  %vdecl_slot3678 = alloca i32
+  store i32 %lhs_or_call3677, i32* %vdecl_slot3678
+  %lhs_or_call3679 = load i32* %vdecl_slot3673
+  %bop3680 = add i32 %lhs_or_call3679, 1
+  %vdecl_slot3681 = alloca i32
+  store i32 %bop3680, i32* %vdecl_slot3681
+  br label %__cond909
+
+__cond909:
+  %lhs_or_call3682 = load i32* %vdecl_slot3681
+  %lhs_or_call3683 = load i32* %vdecl_slot3662
+  %bop3684 = icmp sle i32 %lhs_or_call3682, %lhs_or_call3683
+  br i1 %bop3684, label %__body908, label %__post907
+
+__fresh924:
+  br label %__body908
+
+__body908:
+  %lhs_or_call3685 = load i32* %vdecl_slot3681
+  %lhs_or_call3686 = load %Array** %vdecl_slot3661
+  %getElement3688 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 2
+  %getElement3687 = load i32 (%Array*, i32)** %getElement3688
+  %cast_op3689 = bitcast %Array %lhs_or_call3686 to %Array* 
+  %ret3690 = call i32 %getElement3687 ( %Array* %cast_op3689, i32 %lhs_or_call3685 )
+  %vdecl_slot3691 = alloca i32
+  store i32 %ret3690, i32* %vdecl_slot3691
+  %lhs_or_call3692 = load i32* %vdecl_slot3678
+  %lhs_or_call3693 = load %Array** %vdecl_slot3661
+  %getElement3695 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 2
+  %getElement3694 = load i32 (%Array*, i32)** %getElement3695
+  %cast_op3696 = bitcast %Array %lhs_or_call3693 to %Array* 
+  %ret3697 = call i32 %getElement3694 ( %Array* %cast_op3696, i32 %lhs_or_call3692 )
+  %vdecl_slot3698 = alloca i32
+  store i32 %ret3697, i32* %vdecl_slot3698
+  %lhs_or_call3699 = load i32* %vdecl_slot3691
+  %lhs_or_call3700 = load i32* %vdecl_slot3698
+  %bop3701 = icmp slt i32 %lhs_or_call3699, %lhs_or_call3700
+  br i1 %bop3701, label %__then912, label %__else911
+
+__fresh925:
+  br label %__then912
+
+__then912:
+  %lhs_or_call3702 = load i32* %vdecl_slot3681
+  store i32 %lhs_or_call3702, i32* %vdecl_slot3678
+  br label %__merge910
+
+__fresh926:
+  br label %__else911
+
+__else911:
+  br label %__merge910
+
+__merge910:
+  %lhs_or_call3703 = load i32* %vdecl_slot3681
+  %bop3704 = add i32 %lhs_or_call3703, 1
+  store i32 %bop3704, i32* %vdecl_slot3681
+  br label %__cond909
+
+__fresh927:
+  br label %__post907
+
+__post907:
+  %lhs_or_call3705 = load i32* %vdecl_slot3678
+  %lhs_or_call3706 = load i32* %vdecl_slot3673
+  %bop3707 = icmp ne i32 %lhs_or_call3705, %lhs_or_call3706
+  br i1 %bop3707, label %__then915, label %__else914
+
+__fresh928:
+  br label %__then915
+
+__then915:
+  %lhs_or_call3708 = load i32* %vdecl_slot3678
+  %lhs_or_call3709 = load %Array** %vdecl_slot3661
+  %getElement3711 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 2
+  %getElement3710 = load i32 (%Array*, i32)** %getElement3711
+  %cast_op3712 = bitcast %Array %lhs_or_call3709 to %Array* 
+  %ret3713 = call i32 %getElement3710 ( %Array* %cast_op3712, i32 %lhs_or_call3708 )
+  %vdecl_slot3714 = alloca i32
+  store i32 %ret3713, i32* %vdecl_slot3714
+  %lhs_or_call3715 = load i32* %vdecl_slot3673
+  %lhs_or_call3716 = load %Array** %vdecl_slot3661
+  %getElement3718 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 2
+  %getElement3717 = load i32 (%Array*, i32)** %getElement3718
+  %cast_op3719 = bitcast %Array %lhs_or_call3716 to %Array* 
+  %ret3720 = call i32 %getElement3717 ( %Array* %cast_op3719, i32 %lhs_or_call3715 )
+  %vdecl_slot3721 = alloca i32
+  store i32 %ret3720, i32* %vdecl_slot3721
+  %lhs_or_call3722 = load i32* %vdecl_slot3714
+  %lhs_or_call3723 = load i32* %vdecl_slot3673
+  %lhs_or_call3724 = load %Array** %vdecl_slot3661
+  %setElement3726 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 3
+  %setElement3725 = load void (%Array*, i32, i32)** %setElement3726
+  %cast_op3727 = bitcast %Array %lhs_or_call3724 to %Array* 
+  call void %setElement3725( %Array* %cast_op3727, i32 %lhs_or_call3723, i32 %lhs_or_call3722 )
+  %lhs_or_call3728 = load i32* %vdecl_slot3721
+  %lhs_or_call3729 = load i32* %vdecl_slot3678
+  %lhs_or_call3730 = load %Array** %vdecl_slot3661
+  %setElement3732 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 3
+  %setElement3731 = load void (%Array*, i32, i32)** %setElement3732
+  %cast_op3733 = bitcast %Array %lhs_or_call3730 to %Array* 
+  call void %setElement3731( %Array* %cast_op3733, i32 %lhs_or_call3729, i32 %lhs_or_call3728 )
+  br label %__merge913
+
+__fresh929:
+  br label %__else914
+
+__else914:
+  br label %__merge913
+
+__merge913:
+  %lhs_or_call3734 = load i32* %vdecl_slot3673
+  %bop3735 = add i32 %lhs_or_call3734, 1
+  store i32 %bop3735, i32* %vdecl_slot3673
+  br label %__cond906
+
+__fresh930:
+  br label %__post904
+
+__post904:
+  %vdecl_slot3736 = alloca i32
+  store i32 1, i32* %vdecl_slot3736
+  br label %__cond918
+
+__cond918:
+  %lhs_or_call3737 = load i32* %vdecl_slot3736
+  %lhs_or_call3738 = load i32* %vdecl_slot3662
+  %bop3739 = icmp slt i32 %lhs_or_call3737, %lhs_or_call3738
+  br i1 %bop3739, label %__body917, label %__post916
+
+__fresh931:
+  br label %__body917
+
+__body917:
+  %lhs_or_call3740 = load i32* %vdecl_slot3736
+  %lhs_or_call3741 = load %Array** %vdecl_slot3661
+  %getElement3743 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 2
+  %getElement3742 = load i32 (%Array*, i32)** %getElement3743
+  %cast_op3744 = bitcast %Array %lhs_or_call3741 to %Array* 
+  %ret3745 = call i32 %getElement3742 ( %Array* %cast_op3744, i32 %lhs_or_call3740 )
+  %vdecl_slot3746 = alloca i32
+  store i32 %ret3745, i32* %vdecl_slot3746
+  %lhs_or_call3747 = load i32* %vdecl_slot3736
+  %bop3748 = add i32 %lhs_or_call3747, 1
+  %lhs_or_call3749 = load %Array** %vdecl_slot3661
+  %getElement3751 = getelementptr %_Array_vtable* @_Array_vtable623, i32 0, i32 2
+  %getElement3750 = load i32 (%Array*, i32)** %getElement3751
+  %cast_op3752 = bitcast %Array %lhs_or_call3749 to %Array* 
+  %ret3753 = call i32 %getElement3750 ( %Array* %cast_op3752, i32 %bop3748 )
+  %vdecl_slot3754 = alloca i32
+  store i32 %ret3753, i32* %vdecl_slot3754
+  %lhs_or_call3755 = load i32* %vdecl_slot3746
+  %lhs_or_call3756 = load i32* %vdecl_slot3754
+  %bop3757 = icmp sgt i32 %lhs_or_call3755, %lhs_or_call3756
+  br i1 %bop3757, label %__then921, label %__else920
+
+__fresh932:
+  br label %__then921
+
+__then921:
+  %lhs_or_call3758 = load i32* %vdecl_slot3663
+  %bop3759 = add i32 %lhs_or_call3758, 1
+  store i32 %bop3759, i32* %vdecl_slot3663
+  br label %__merge919
+
+__fresh933:
+  br label %__else920
+
+__else920:
+  br label %__merge919
+
+__merge919:
+  %lhs_or_call3760 = load i32* %vdecl_slot3736
+  %bop3761 = add i32 %lhs_or_call3760, 1
+  store i32 %bop3761, i32* %vdecl_slot3736
+  br label %__cond918
+
+__fresh934:
+  br label %__post916
+
+__post916:
+  %lhs_or_call3762 = load i32* %vdecl_slot3663
+  ret i32 %lhs_or_call3762
 }
 
 
-define i32 @_B_h (%B* %_this1, i32 %i47){
-__fresh8:
-  %i_slot48 = alloca i32
-  store i32 %i47, i32* %i_slot48
-  %f50 = getelementptr %_B_vtable* @_B_vtable3, i32 0, i32 4
-  %f49 = load void (%B*)** %f50
-  %cast_op51 = bitcast %B %_this1 to %B* 
-  call void %f49( %B* %cast_op51 )
-  %g53 = getelementptr %_B_vtable* @_B_vtable3, i32 0, i32 3
-  %g52 = load void (%A*)** %g53
-  %cast_op54 = bitcast %B %_this1 to %A* 
-  call void %g52( %A* %cast_op54 )
-  %i55 = getelementptr %B* %_this1, i32 0, i32 2
-  %lhs_or_call56 = load i32* %i55
-  %j57 = getelementptr %B* %_this1, i32 0, i32 3
-  %lhs_or_call58 = load i32* %j57
-  %bop59 = add i32 %lhs_or_call56, %lhs_or_call58
-  %lhs_or_call60 = load i32* %i_slot48
-  %bop61 = add i32 %bop59, %lhs_or_call60
-  ret i32 %bop61
+define i32 @_Array_getLength (%Array* %_this1){
+__fresh903:
+  %arrayLength3652 = getelementptr %Array* %_this1, i32 0, i32 2
+  %lhs_or_call3653 = load i32* %arrayLength3652
+  ret i32 %lhs_or_call3653
 }
 
 
-define void @_B_f (%B* %_this1){
-__fresh7:
-  %j43 = getelementptr %B* %_this1, i32 0, i32 3
-  %j44 = getelementptr %B* %_this1, i32 0, i32 3
-  %lhs_or_call45 = load i32* %j44
-  %bop46 = add i32 %lhs_or_call45, 1
-  store i32 %bop46, i32* %j43
+define void @_Array_addElement (%Array* %_this1, i32 %key3615){
+__fresh894:
+  %key_slot3616 = alloca i32
+  store i32 %key3615, i32* %key_slot3616
+  %arrayLength3617 = getelementptr %Array* %_this1, i32 0, i32 2
+  %lhs_or_call3618 = load i32* %arrayLength3617
+  %bop3619 = icmp eq i32 %lhs_or_call3618, 0
+  br i1 %bop3619, label %__then893, label %__else892
+
+__fresh895:
+  br label %__then893
+
+__then893:
+  %headItem3620 = getelementptr %Array* %_this1, i32 0, i32 3
+  %lhs_or_call3621 = load i32* %key_slot3616
+  %mem_ptr3622 = call i32* @oat_malloc ( i32 16 )
+  %obj3623 = bitcast i32* %mem_ptr3622 to %ArrayItem* 
+  %new_obj3624 = call %ArrayItem* @_ArrayItem_ctor ( %ArrayItem* %obj3623, i32 %lhs_or_call3621 )
+  store %ArrayItem* %new_obj3624, %ArrayItem** %headItem3620
+  br label %__merge891
+
+__fresh896:
+  br label %__else892
+
+__else892:
+  %headItem3625 = getelementptr %Array* %_this1, i32 0, i32 3
+  %lhs_or_call3626 = load %ArrayItem** %headItem3625
+  %ifnull_slot3627 = alloca %ArrayItem*
+  store %ArrayItem* %lhs_or_call3626, %ArrayItem** %ifnull_slot3627
+  %ifnull_guard3628 = icmp ne %ArrayItem* %lhs_or_call3626, null
+  br i1 %ifnull_guard3628, label %__then890, label %__else889
+
+__fresh897:
+  br label %__then890
+
+__then890:
+  %vdecl_slot3629 = alloca i32
+  store i32 1, i32* %vdecl_slot3629
+  br label %__cond884
+
+__cond884:
+  %lhs_or_call3630 = load i32* %vdecl_slot3629
+  %arrayLength3631 = getelementptr %Array* %_this1, i32 0, i32 2
+  %lhs_or_call3632 = load i32* %arrayLength3631
+  %bop3633 = icmp ne i32 %lhs_or_call3630, %lhs_or_call3632
+  br i1 %bop3633, label %__body883, label %__post882
+
+__fresh898:
+  br label %__body883
+
+__body883:
+  %lhs_or_call3634 = load %ArrayItem** %ifnull_slot3627
+  %nextItem3635 = getelementptr %ArrayItem* %lhs_or_call3634, i32 0, i32 3
+  %lhs_or_call3636 = load %ArrayItem** %nextItem3635
+  %ifnull_slot3637 = alloca %ArrayItem*
+  store %ArrayItem* %lhs_or_call3636, %ArrayItem** %ifnull_slot3637
+  %ifnull_guard3638 = icmp ne %ArrayItem* %lhs_or_call3636, null
+  br i1 %ifnull_guard3638, label %__then887, label %__else886
+
+__fresh899:
+  br label %__then887
+
+__then887:
+  %lhs_or_call3639 = load %ArrayItem** %ifnull_slot3637
+  store %ArrayItem* %lhs_or_call3639, %ArrayItem** %ifnull_slot3627
+  br label %__merge885
+
+__fresh900:
+  br label %__else886
+
+__else886:
+  br label %__merge885
+
+__merge885:
+  %lhs_or_call3640 = load i32* %vdecl_slot3629
+  %bop3641 = add i32 %lhs_or_call3640, 1
+  store i32 %bop3641, i32* %vdecl_slot3629
+  br label %__cond884
+
+__fresh901:
+  br label %__post882
+
+__post882:
+  %lhs_or_call3642 = load %ArrayItem** %ifnull_slot3627
+  %nextItem3643 = getelementptr %ArrayItem* %lhs_or_call3642, i32 0, i32 3
+  %lhs_or_call3644 = load i32* %key_slot3616
+  %mem_ptr3645 = call i32* @oat_malloc ( i32 16 )
+  %obj3646 = bitcast i32* %mem_ptr3645 to %ArrayItem* 
+  %new_obj3647 = call %ArrayItem* @_ArrayItem_ctor ( %ArrayItem* %obj3646, i32 %lhs_or_call3644 )
+  store %ArrayItem* %new_obj3647, %ArrayItem** %nextItem3643
+  br label %__merge888
+
+__fresh902:
+  br label %__else889
+
+__else889:
+  br label %__merge888
+
+__merge888:
+  br label %__merge891
+
+__merge891:
+  %arrayLength3648 = getelementptr %Array* %_this1, i32 0, i32 2
+  %arrayLength3649 = getelementptr %Array* %_this1, i32 0, i32 2
+  %lhs_or_call3650 = load i32* %arrayLength3649
+  %bop3651 = add i32 %lhs_or_call3650, 1
+  store i32 %bop3651, i32* %arrayLength3648
   ret void
 }
 
 
-define %B* @_B_ctor (%B* %_this1){
-__fresh6:
-  %lhs_or_call34 = load %B* %_this1
-  %cast_op35 = bitcast %B %lhs_or_call34 to %A* 
-  %mem_ptr36 = call i32* @oat_malloc ( i32 16 )
-  %obj37 = bitcast i32* %mem_ptr36 to %B* 
-  %new_obj38 = call %A* @_A_ctor ( %B* %obj37, %A* %cast_op35 )
-  %_name39 = getelementptr %B* %_this1, i32 0, i32 1
-  %lhs_or_call40 = load %B* %_this1
-  %cast_op41 = bitcast %B %lhs_or_call40 to i8* 
-  store i8* %cast_op41, i8** %_name39
-  %this_vtable42 = getelementptr %B* %_this1, i32 0, i32 0
-  store %B* %_this1, %_B_vtable* %this_vtable42
-  call void @print_string( i8* @_const_str4 )
-  %j32 = getelementptr %B* %_this1, i32 0, i32 3
-  store i32 2, i32* %j32
-  ret %B* %_this1
-}
+define void @_Array_setElement (%Array* %_this1, i32 %index3594, i32 %key3592){
+__fresh875:
+  %index_slot3595 = alloca i32
+  store i32 %index3594, i32* %index_slot3595
+  %key_slot3593 = alloca i32
+  store i32 %key3592, i32* %key_slot3593
+  %headItem3596 = getelementptr %Array* %_this1, i32 0, i32 3
+  %lhs_or_call3597 = load %ArrayItem** %headItem3596
+  %ifnull_slot3598 = alloca %ArrayItem*
+  store %ArrayItem* %lhs_or_call3597, %ArrayItem** %ifnull_slot3598
+  %ifnull_guard3599 = icmp ne %ArrayItem* %lhs_or_call3597, null
+  br i1 %ifnull_guard3599, label %__then874, label %__else873
 
+__fresh876:
+  br label %__then874
 
-define void @_A_f (%A* %_this1){
-__fresh5:
-  %i31 = getelementptr %A* %_this1, i32 0, i32 2
-  store i32 999, i32* %i31
+__then874:
+  %vdecl_slot3600 = alloca i32
+  store i32 1, i32* %vdecl_slot3600
+  br label %__cond868
+
+__cond868:
+  %lhs_or_call3601 = load i32* %vdecl_slot3600
+  %lhs_or_call3602 = load i32* %index_slot3595
+  %bop3603 = icmp ne i32 %lhs_or_call3601, %lhs_or_call3602
+  br i1 %bop3603, label %__body867, label %__post866
+
+__fresh877:
+  br label %__body867
+
+__body867:
+  %lhs_or_call3604 = load %ArrayItem** %ifnull_slot3598
+  %nextItem3605 = getelementptr %ArrayItem* %lhs_or_call3604, i32 0, i32 3
+  %lhs_or_call3606 = load %ArrayItem** %nextItem3605
+  %ifnull_slot3607 = alloca %ArrayItem*
+  store %ArrayItem* %lhs_or_call3606, %ArrayItem** %ifnull_slot3607
+  %ifnull_guard3608 = icmp ne %ArrayItem* %lhs_or_call3606, null
+  br i1 %ifnull_guard3608, label %__then871, label %__else870
+
+__fresh878:
+  br label %__then871
+
+__then871:
+  %lhs_or_call3609 = load %ArrayItem** %ifnull_slot3607
+  store %ArrayItem* %lhs_or_call3609, %ArrayItem** %ifnull_slot3598
+  br label %__merge869
+
+__fresh879:
+  br label %__else870
+
+__else870:
+  br label %__merge869
+
+__merge869:
+  %lhs_or_call3610 = load i32* %vdecl_slot3600
+  %bop3611 = add i32 %lhs_or_call3610, 1
+  store i32 %bop3611, i32* %vdecl_slot3600
+  br label %__cond868
+
+__fresh880:
+  br label %__post866
+
+__post866:
+  %lhs_or_call3612 = load %ArrayItem** %ifnull_slot3598
+  %keyValue3613 = getelementptr %ArrayItem* %lhs_or_call3612, i32 0, i32 2
+  %lhs_or_call3614 = load i32* %key_slot3593
+  store i32 %lhs_or_call3614, i32* %keyValue3613
+  br label %__merge872
+
+__fresh881:
+  br label %__else873
+
+__else873:
+  call void @print_string( i8* @_const_str628 )
+  call void @oat_abort( i32 -1 )
+  br label %__merge872
+
+__merge872:
   ret void
 }
 
 
-define void @_A_g (%A* %_this1){
-__fresh4:
-  %x25 = getelementptr %_A_vtable* @_A_vtable2, i32 0, i32 2
-  %x24 = load void (%A*)** %x25
-  %cast_op26 = bitcast %A %_this1 to %A* 
-  call void %x24( %A* %cast_op26 )
-  %i27 = getelementptr %A* %_this1, i32 0, i32 2
-  %i28 = getelementptr %A* %_this1, i32 0, i32 2
-  %lhs_or_call29 = load i32* %i28
-  %bop30 = add i32 %lhs_or_call29, 1
-  store i32 %bop30, i32* %i27
+define i32 @_Array_getElement (%Array* %_this1, i32 %index3569){
+__fresh859:
+  %index_slot3570 = alloca i32
+  store i32 %index3569, i32* %index_slot3570
+  %vdecl_slot3571 = alloca i32
+  store i32 0, i32* %vdecl_slot3571
+  %headItem3572 = getelementptr %Array* %_this1, i32 0, i32 3
+  %lhs_or_call3573 = load %ArrayItem** %headItem3572
+  %ifnull_slot3574 = alloca %ArrayItem*
+  store %ArrayItem* %lhs_or_call3573, %ArrayItem** %ifnull_slot3574
+  %ifnull_guard3575 = icmp ne %ArrayItem* %lhs_or_call3573, null
+  br i1 %ifnull_guard3575, label %__then858, label %__else857
+
+__fresh860:
+  br label %__then858
+
+__then858:
+  %vdecl_slot3576 = alloca i32
+  store i32 1, i32* %vdecl_slot3576
+  br label %__cond852
+
+__cond852:
+  %lhs_or_call3577 = load i32* %vdecl_slot3576
+  %lhs_or_call3578 = load i32* %index_slot3570
+  %bop3579 = icmp ne i32 %lhs_or_call3577, %lhs_or_call3578
+  br i1 %bop3579, label %__body851, label %__post850
+
+__fresh861:
+  br label %__body851
+
+__body851:
+  %lhs_or_call3580 = load %ArrayItem** %ifnull_slot3574
+  %nextItem3581 = getelementptr %ArrayItem* %lhs_or_call3580, i32 0, i32 3
+  %lhs_or_call3582 = load %ArrayItem** %nextItem3581
+  %ifnull_slot3583 = alloca %ArrayItem*
+  store %ArrayItem* %lhs_or_call3582, %ArrayItem** %ifnull_slot3583
+  %ifnull_guard3584 = icmp ne %ArrayItem* %lhs_or_call3582, null
+  br i1 %ifnull_guard3584, label %__then855, label %__else854
+
+__fresh862:
+  br label %__then855
+
+__then855:
+  %lhs_or_call3585 = load %ArrayItem** %ifnull_slot3583
+  store %ArrayItem* %lhs_or_call3585, %ArrayItem** %ifnull_slot3574
+  br label %__merge853
+
+__fresh863:
+  br label %__else854
+
+__else854:
+  br label %__merge853
+
+__merge853:
+  %lhs_or_call3586 = load i32* %vdecl_slot3576
+  %bop3587 = add i32 %lhs_or_call3586, 1
+  store i32 %bop3587, i32* %vdecl_slot3576
+  br label %__cond852
+
+__fresh864:
+  br label %__post850
+
+__post850:
+  %lhs_or_call3588 = load %ArrayItem** %ifnull_slot3574
+  %keyValue3589 = getelementptr %ArrayItem* %lhs_or_call3588, i32 0, i32 2
+  %lhs_or_call3590 = load i32* %keyValue3589
+  store i32 %lhs_or_call3590, i32* %vdecl_slot3571
+  br label %__merge856
+
+__fresh865:
+  br label %__else857
+
+__else857:
+  call void @print_string( i8* @_const_str627 )
+  call void @oat_abort( i32 -1 )
+  br label %__merge856
+
+__merge856:
+  %lhs_or_call3591 = load i32* %vdecl_slot3571
+  ret i32 %lhs_or_call3591
+}
+
+
+define %Array* @_Array_ctor (%Array* %_this1){
+__fresh849:
+  %cast_op3563 = bitcast %Array* %_this1 to %Object* 
+  %mem_ptr3564 = call i32* @oat_malloc ( i32 16 )
+  %obj3565 = bitcast i32* %mem_ptr3564 to %Array* 
+  %new_obj3566 = call %Object* @_Object_ctor ( %Array* %obj3565, %Object* %cast_op3563 )
+  %_this1 = bitcast %Object* %new_obj3566 to %Array 
+  %_name3567 = getelementptr %Array* %_this1, i32 0, i32 1
+  store i8* @_const_str626, i8** %_name3567
+  %this_vtable3568 = getelementptr %Array* %_this1, i32 0, i32 0
+  store %_Array_vtable* @_Array_vtable623, %_Array_vtable* %this_vtable3568
+  %arrayLength3562 = getelementptr %Array* %_this1, i32 0, i32 2
+  store i32 0, i32* %arrayLength3562
+  ret %Array* %_this1
+}
+
+
+define void @_ArrayItem_set (%ArrayItem* %_this1, i32 %x3558){
+__fresh848:
+  %x_slot3559 = alloca i32
+  store i32 %x3558, i32* %x_slot3559
+  %keyValue3560 = getelementptr %ArrayItem* %_this1, i32 0, i32 2
+  %lhs_or_call3561 = load i32* %x_slot3559
+  store i32 %lhs_or_call3561, i32* %keyValue3560
   ret void
 }
 
 
-define void @_A_x (%A* %_this1){
-__fresh3:
-  %i20 = getelementptr %A* %_this1, i32 0, i32 2
-  %i21 = getelementptr %A* %_this1, i32 0, i32 2
-  %lhs_or_call22 = load i32* %i21
-  %bop23 = add i32 %lhs_or_call22, 1
-  store i32 %bop23, i32* %i20
-  ret void
-}
-
-
-define %A* @_A_ctor (%A* %_this1){
-__fresh2:
-  %lhs_or_call11 = load %A* %_this1
-  %cast_op12 = bitcast %A %lhs_or_call11 to %Object* 
-  %mem_ptr13 = call i32* @oat_malloc ( i32 12 )
-  %obj14 = bitcast i32* %mem_ptr13 to %A* 
-  %new_obj15 = call %Object* @_Object_ctor ( %A* %obj14, %Object* %cast_op12 )
-  %_name16 = getelementptr %A* %_this1, i32 0, i32 1
-  %lhs_or_call17 = load %A* %_this1
-  %cast_op18 = bitcast %A %lhs_or_call17 to i8* 
-  store i8* %cast_op18, i8** %_name16
-  %this_vtable19 = getelementptr %A* %_this1, i32 0, i32 0
-  store %A* %_this1, %_A_vtable* %this_vtable19
-  %i9 = getelementptr %A* %_this1, i32 0, i32 2
-  store i32 1, i32* %i9
-  ret %A* %_this1
+define %ArrayItem* @_ArrayItem_ctor (%ArrayItem* %_this1, i32 %x3546){
+__fresh847:
+  %x_slot3547 = alloca i32
+  store i32 %x3546, i32* %x_slot3547
+  %cast_op3552 = bitcast %ArrayItem* %_this1 to %Object* 
+  %mem_ptr3553 = call i32* @oat_malloc ( i32 16 )
+  %obj3554 = bitcast i32* %mem_ptr3553 to %ArrayItem* 
+  %new_obj3555 = call %Object* @_Object_ctor ( %ArrayItem* %obj3554, %Object* %cast_op3552 )
+  %_this1 = bitcast %Object* %new_obj3555 to %ArrayItem 
+  %_name3556 = getelementptr %ArrayItem* %_this1, i32 0, i32 1
+  store i8* @_const_str625, i8** %_name3556
+  %this_vtable3557 = getelementptr %ArrayItem* %_this1, i32 0, i32 0
+  store %_ArrayItem_vtable* @_ArrayItem_vtable622, %_ArrayItem_vtable* %this_vtable3557
+  %keyValue3548 = getelementptr %ArrayItem* %_this1, i32 0, i32 2
+  %lhs_or_call3549 = load i32* %x_slot3547
+  store i32 %lhs_or_call3549, i32* %keyValue3548
+  %nextItem3550 = getelementptr %ArrayItem* %_this1, i32 0, i32 3
+  %cast_op3551 = bitcast i8* null to %ArrayItem* 
+  store %ArrayItem* %cast_op3551, %ArrayItem** %nextItem3550
+  ret %ArrayItem* %_this1
 }
 
 
 define i8* @_Object_get_name (%Object* %_this1){
-__fresh1:
-  %_name7 = getelementptr %Object* %_this1, i32 0, i32 1
-  %lhs_or_call8 = load i8** %_name7
-  ret i8* %lhs_or_call8
+__fresh846:
+  %_name3544 = getelementptr %Object* %_this1, i32 0, i32 1
+  %lhs_or_call3545 = load i8** %_name3544
+  ret i8* %lhs_or_call3545
 }
 
 
 define %Object* @_Object_ctor (%Object* %_this1){
-__fresh0:
-  %_name3 = getelementptr %Object* %_this1, i32 0, i32 1
-  %lhs_or_call4 = load %Object* %_this1
-  %cast_op5 = bitcast %Object %lhs_or_call4 to i8* 
-  store i8* %cast_op5, i8** %_name3
-  %this_vtable6 = getelementptr %Object* %_this1, i32 0, i32 0
-  store %Object* %_this1, %_Object_vtable* %this_vtable6
+__fresh845:
+  %_name3542 = getelementptr %Object* %_this1, i32 0, i32 1
+  store i8* @_const_str624, i8** %_name3542
+  %this_vtable3543 = getelementptr %Object* %_this1, i32 0, i32 0
+  store %_Object_vtable* @_Object_vtable621, %_Object_vtable* %this_vtable3543
   ret %Object* %_this1
 }
 
