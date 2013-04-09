@@ -467,7 +467,7 @@ let manual_tests : suite = [
 let my_tests : suite = [
   GradedTest("Easy tests", 20, [  
   
-    ("run30", file_test "run30.oat" "" "no1");
+    ("cg_eval_cast_onestep_fail.oat", file_test "cg_eval_cast_onestep_fail.oat" "" "21");
 
   ]);
 
@@ -480,7 +480,7 @@ let my_tests : suite = [
 
 
 let graded_tests : suite = 
-  my_tests
-  (* typechecking_tests @ *)
-  (* file_tests @ *)
-  (* manual_tests *)
+  (* my_tests *)
+  typechecking_tests @
+  file_tests @
+  manual_tests

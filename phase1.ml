@@ -727,72 +727,78 @@ and cmp_stmt (c:ctxt) (stmt : Range.t Ast.stmt) : stream =
         I (Call (None, op_of_fn oat_abort_fn, [i32_op_of_int (-1)]))
 
     | Ast.Cast (cid, (_, id), e, st, sto)  ->
-      let op = gen_local_op (Ptr(Ptr(Namedt(cid)))) "cast_ptr" in
-      let c2 = add_local c id (snd op) in
-      let assign_op, assign_code = (cmp_exp c2 e) in
-      let assign_stream = [I(Bitcast((fst op), assign_op, (Ptr(Namedt(cid)))))]@assign_code in
-      (* let assign_stream =[] in *)
-      let stmt_stream = cmp_stmt c2 st in
+      let (new_op_id,new_op_operand) = gen_local_op (Ptr(Ptr(Namedt(cid)))) "cast_ptr" in
+      let c2 = add_local c id (new_op_operand) in
+      let alloca_insn = [I(Alloca((new_op_id),(Ptr(Namedt(cid)))))]in
+      let assign_op, cmp_exp_code = (cmp_exp c2 e) in
+      let assign_code = [I(Store(assign_op,new_op_operand))] in
+      print_string("\n\n\n\n\nThe operand on line 732 was: "^(string_of_operand assign_op)^"\n\n\n");
+      (* let assign_stream = [I(Bitcast((fst op), assign_op, (Ptr(Namedt(cid)))))]@assign_code in *)
+      let stmt_stream =  cmp_stmt c2 st in
       let stmt_opt_stream = begin match sto with
   	                      |Some s->(cmp_stmt c s)
   			      |None -> []
                             end in
+      let curr_cid =  begin match (fst assign_op) with
+      | Ptr(Namedt(t)) -> t 
+      |x-> print_endline("found type "^(Lllib.string_of_ty x)); failwith "obj wasn't a ptr to a named t"
+      end in
+       
+      let csig = try Some(lookup_csig c curr_cid) with Not_found -> None in
+    
+      let good_cast = if (curr_cid = cid) then true else if (check_superclass cid csig c) then true else false in
+      if (good_cast) then stmt_stream@assign_code@alloca_insn
+      else stmt_opt_stream
 
-      let right_vtable_id, right_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "rvtable" in
-      let left_vtable_id, left_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "lvtable" in
-      let left_csig = lookup_csig c cid in
-      let (left_vtable_operand) = left_csig.vtable in
-      let lbl_init = mk_lbl_hint "init" in
-      let lbl_bound_check = mk_lbl_hint "bound_check"in
-      let lbl_move_up = mk_lbl_hint "move_up" in
-      let lbl_check_curr = mk_lbl_hint "check_curr" in
-      let lbl_end_no = mk_lbl_hint "end_no" in
-      let lbl_end_yes = mk_lbl_hint "end_yes" in
-      let lbl_end = mk_lbl_hint "end" in
-      let (cmp_id,cmp_operand) = gen_local_op I1 "compare" in
-      let (rvtable_id,rvtable_operand) = gen_local_op (Ptr I8) "rvtable" in
-      let (leftvtable_cast_op, cast_leftvtable_op_insn) = (cast_op (left_vtable_operand, []) (Ptr(Ptr I8))) in
+
+
+      (* let obj_opt = lookup_local id c in			       *)
+      (* let right_vtable_id, right_vtable_ptr = gen_local_op (Ptr(Ptr I8)) "rvtable_ptr" in *)
+      (* let left_vtable_id, left_vtable_ptr = gen_local_op ((Ptr I8)) "lvtable_ptr" in *)
+      (* let left_csig = lookup_csig c cid in *)
+      (* let (left_vtable_operand) = left_csig.vtable in *)
+      (* let lbl_bound_check = mk_lbl_hint "bound_check"in *)
+      (* let lbl_move_up = mk_lbl_hint "move_up" in *)
+      (* let lbl_check_curr = mk_lbl_hint "check_curr" in *)
+      (* let lbl_end_no = mk_lbl_hint "end_no" in *)
+      (* let lbl_end_yes = mk_lbl_hint "end_yes" in *)
+      (* let lbl_merge = mk_lbl_hint "merge" in *)
+      (* let (cmp_id,cmp_operand) = gen_local_op I1 "compare" in *)
+      (* let (rvtable_id,rvtable_operand) = gen_local_op ((Ptr I8)) "rvtable" in *)
+
+      (* let load_right_vtable_insn = [I(Gep(right_vtable_id, assign_op, [i32_op_of_int 0;i32_op_of_int 0]))] in *)
+      (* let (leftvtable_cast_op, cast_leftvtable_op_insn) = (cast_op (left_vtable_operand, []) (Ptr(Ptr I8))) in *)
       (* let (rightvtable_cast_op, cast_rightvtable_op_insn) = (cast_op (right_vtable_ptr, []) (Ptr(Ptr I8))) in *)
-      let rcast_id, rcast_op = gen_local_op  (Ptr(Ptr I8)) "cast_vtable" in
 
-      let cast_right_vtable_insn =  [I(Bitcast(rcast_id, right_vtable_ptr,(Ptr(Ptr I8))))] in
-      let load_right_vtable_insn = [(I(Load(rvtable_id,rcast_op)))] in
-      let left_load_insn = [I(Load(left_vtable_id,leftvtable_cast_op))] in
-      let cmp_bound_insn = [I(Icmp(cmp_id, Eq, rvtable_operand, (Ptr(I8), Null)))] in
-      let cbr_insn1 = [T(Cbr(cmp_operand,lbl_end_no,lbl_check_curr))] in
-      let cmp_insn = [I(Icmp(cmp_id,Eq,left_vtable_ptr,rvtable_operand))] in
-      let cbr_insn2 = [T(Cbr(cmp_operand,lbl_end_yes,lbl_move_up))] in
-      let move_up_insn = [I(Gep(right_vtable_id, rvtable_operand, [i32_op_of_int 0]))] in
-      
-      
-      let init_insns = [T(Br(lbl_init))]>@[L(lbl_init)]>@[I(Gep(right_vtable_id, assign_op, [i32_op_of_int 0]))]>@[T(Br(lbl_bound_check))] in
-	              
-      let check_bound_insns = [L(lbl_bound_check)]>@
-	cast_leftvtable_op_insn>@left_load_insn>@cast_right_vtable_insn>@load_right_vtable_insn>@cmp_bound_insn>@cbr_insn1 in
-      
-      let check_curr_insns = 	[L(lbl_check_curr)]>@cmp_insn>@cbr_insn2 in
-      let move_up_insns = [L(lbl_move_up)](* >@move_up_insn*)>@ [T(Br(lbl_bound_check))] in
-      let end_yes_insns = [L(lbl_end_yes)](* >@assign_stream>@stmt_stream *) in
-      let end_no_insns = [L(lbl_end_no)](*> @stmt_opt_stream *) in
-      let loop =  [T(Br(lbl_init))]>@[L(lbl_init)]>@assign_code
-	          >@[I(Gep(right_vtable_id, assign_op, [i32_op_of_int 0]))]
-	           >@[T(Br(lbl_bound_check))]>@
-	          [L(lbl_bound_check)]
-	             >@cast_leftvtable_op_insn>@left_load_insn
-	             >@cast_right_vtable_insn>@load_right_vtable_insn
-	             >@cmp_bound_insn >@cbr_insn1>@
-		  [L(lbl_check_curr)]
-	             >@cmp_insn>@cbr_insn2>@
-		  [L(lbl_move_up)]
-	             >@[I(Gep(right_vtable_id, rvtable_operand, [i32_op_of_int 0]))]>@
-		     [T(Br(lbl_bound_check))]>@
-		  [L(lbl_end_yes)]
-	             >@assign_stream>@stmt_stream>@[T(Br(lbl_end))]>@
-		  [L(lbl_end_no)]
-	            >@stmt_opt_stream >@[T(Br(lbl_end))]>@
-		  [L(lbl_end)]
-(* init_insns>@check_bound_insns>@check_curr_insns>@move_up_insns>@end_yes_insns>@end_no_insns *) in
-      loop
+      (* let load_insn = [I(Load(rvtable_id,rightvtable_cast_op))] in *)
+      (* let left_load_insn = [I(Load(left_vtable_id,leftvtable_cast_op))] in *)
+      (* let cmp_bound_insn = [I(Icmp(cmp_id, Eq, rvtable_operand, (Ptr(I8), Null)))] in *)
+      (* let cbr_insn1 = [T(Cbr(cmp_operand,lbl_end_no,lbl_check_curr))] in *)
+      (* let cmp_insn = [I(Icmp(cmp_id,Eq,left_vtable_ptr,rvtable_operand))] in *)
+      (* let cbr_insn2 = [T(Cbr(cmp_operand,lbl_end_yes,lbl_move_up))] in *)
+      (* let move_up_insn = [I(Gep(right_vtable_id, right_vtable_ptr, [i32_op_of_int 0;i32_op_of_int 0;]))] in *)
+      (* (\* let move_up_insn = [](\\* [I(Load(rvtable_id, right_vtable_ptr))] *\\) in *\) *)
+      (* let loop =alloca_insn>@cmp_exp_code>@load_right_vtable_insn>@[T(Br(lbl_bound_check))]>@[L(lbl_bound_check)]>@ *)
+      (* 	cast_leftvtable_op_insn>@load_insn>@left_load_insn>@cast_rightvtable_op_insn>@cmp_bound_insn>@cbr_insn1>@ *)
+      (* 	[L(lbl_check_curr)]>@cmp_insn>@cbr_insn2>@ *)
+      (*        [L(lbl_move_up)]>@move_up_insn>@[T(Br(lbl_bound_check))]>@ *)
+      (* 	     [L(lbl_end_yes)]>@assign_code>@stmt_stream>@[T(Br(lbl_merge))]>@ *)
+      (* 	[L(lbl_end_no)]>@stmt_opt_stream>@[T(Br(lbl_merge))]>@[L(lbl_merge)] in *)
+      (* loop *)
+
+and check_superclass(left_cid:string)(right_csig_opt: csig option)(c:ctxt):bool = 
+  begin match right_csig_opt with
+  | Some csig -> begin match csig.ext with 
+                   |Some ext -> if (ext = left_cid) then true else
+		        let super_csig_opt = 
+                                       try Some (lookup_csig c ext) 
+                                       with Not_found -> None in 
+                             check_superclass left_cid super_csig_opt c
+		   |None -> false
+                   end
+                
+  | None -> false
+  end
 
 and cmp_stmts (c:ctxt) (stmts:Range.t Ast.stmts) : stream =
   List.fold_left (fun code s -> code >@ (cmp_stmt c s)) [] stmts

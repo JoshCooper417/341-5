@@ -211,7 +211,7 @@ let compile_gep_path nts val_op op (path: (ty*opn) list) : insn list =
 
     | (Namedt t, p) -> loop (List.assoc t nts) p code
 
-    | _ -> failwith "compile_gep_path encountered unsupported getelementptr data" in
+    | (x,_) ->print_endline("unsupported gep type is "^(Lllib.string_of_ty x)); failwith "compile_gep_path encountered unsupported getelementptr data" in
   match (op, path) with
   | ((Ptr t, _),  (I32, Const 0l)::rest) -> 
      loop t rest [val_op op]
